@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Moodle File Downloader",
+  "name": "Moodle BGU PDF Downloader",
   "version": "1.0.0",
   "description": "Bulk download PDFs, PowerPoint, Word, and Excel files from Moodle course pages with section filtering.",
   "icons": {
