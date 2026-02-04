@@ -56,11 +56,6 @@ All processing happens entirely on your device. See [PRIVACY_POLICY.md](PRIVACY_
 - **File Detection**: Uses Moodle's icon system to identify file types
 - **Folder Support**: Automatically scans folder contents for files
 
-## Screenshots
-
-![Extension Popup](screenshots/popup.png)
-*Extension popup with file type and section filtering*
-
 ## Development
 
 Built with vanilla JavaScript - no external dependencies.
