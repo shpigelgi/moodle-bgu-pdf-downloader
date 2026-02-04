@@ -75,15 +75,23 @@ const collectLinks = async (fileTypes) => {
       
       fileLinks.forEach(fileLink => {
         const fileUrl = fileLink.href;
-        if (!seen.has(fileUrl)) {
-          seen.add(fileUrl);
-          const fileName = fileLink.textContent.trim();
-          folderLinks.push({
-            url: fileUrl,
-            section: section,
-            title: `${folderName} - ${fileName}`
-          });
+        const fileName = fileLink.textContent.trim();
+        
+        // Check if file matches requested file types
+        const lowerUrl = fileUrl.toLowerCase();
+        const matchesType = fileTypes.some(type => lowerUrl.includes(`.${type}`));
+        
+        // Skip if doesn't match requested types or if already seen
+        if (!matchesType || seen.has(fileUrl)) {
+          return;
         }
+        
+        seen.add(fileUrl);
+        folderLinks.push({
+          url: fileUrl,
+          section: section,
+          title: `${folderName} - ${fileName}`
+        });
       });
       
       console.log(`[Content] Found ${folderLinks.length} files in folder: ${folderName}`);
@@ -119,7 +127,15 @@ const collectLinks = async (fileTypes) => {
     // Check if it's a folder
     if (absoluteUrl.includes("/mod/folder/view.php")) {
       const section = getSectionTitle(anchor);
-      const folderName = getResourceTitle(anchor);
+      let folderName = getResourceTitle(anchor);
+      
+      // Remove Hebrew "folder view" labels and other common suffixes
+      folderName = folderName
+        .replace(/תצוגת תיקיית קבצים/g, '')
+        .replace(/קובץ/g, '')
+        .replace(/File/g, '')
+        .trim();
+      
       foldersToScan.push({ url: absoluteUrl, folderName, section });
       continue;
     }

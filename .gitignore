@@ -1,0 +1,20 @@
+# Source images (keep only generated icons)
+icon.svg
+image.png
+image-removebg-preview.png
+icon.png
+
+# Chrome store assets (not needed in repo)
+CHROME_STORE_CHECKLIST.md
+STORE_LISTING.md
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary files
+*.log
+*.tmp
