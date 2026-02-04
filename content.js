@@ -43,7 +43,11 @@ const looksLikePdf = (url, fileTypes) => {
   }
 
   const lowerUrl = url.toLowerCase();
-  return fileTypes.some((type) => lowerUrl.includes(`.${type}`));
+  // Use regex to match exact file extensions (word boundary at end)
+  return fileTypes.some((type) => {
+    const regex = new RegExp(`\.${type}(\\?|$)`, 'i');
+    return regex.test(lowerUrl);
+  });
 };
 
 const looksLikeMoodleResource = (url) => {
@@ -77,9 +81,12 @@ const collectLinks = async (fileTypes) => {
         const fileUrl = fileLink.href;
         const fileName = fileLink.textContent.trim();
         
-        // Check if file matches requested file types
+        // Check if file matches requested file types using exact extension matching
         const lowerUrl = fileUrl.toLowerCase();
-        const matchesType = fileTypes.some(type => lowerUrl.includes(`.${type}`));
+        const matchesType = fileTypes.some(type => {
+          const regex = new RegExp(`\.${type}(\\?|$)`, 'i');
+          return regex.test(lowerUrl);
+        });
         
         // Skip if doesn't match requested types or if already seen
         if (!matchesType || seen.has(fileUrl)) {
@@ -195,22 +202,40 @@ const resolveResourceLink = async (url) => {
   }
 };
 
-const resolveCollectedLinks = async (collectedLinks) => {
+const resolveCollectedLinks = async (collectedLinks, fileTypes) => {
   const resolved = [];
 
   for (const item of collectedLinks) {
     const { url, section, title } = item;
 
     if (url.includes("/pluginfile.php/")) {
-      resolved.push(item);
+      // Check if this direct file URL matches requested types
+      const lowerUrl = url.toLowerCase();
+      const matchesType = fileTypes.some(type => {
+        const regex = new RegExp(`\.${type}(\\?|$)`, 'i');
+        return regex.test(lowerUrl);
+      });
+      
+      if (matchesType) {
+        resolved.push(item);
+      }
     } else if (url.includes("/mod/resource/view.php")) {
       const pluginUrls = await resolveResourceLink(url);
       for (const pluginUrl of pluginUrls) {
-        resolved.push({
-          url: pluginUrl,
-          section,
-          title
+        // Filter resolved URLs by requested file types
+        const lowerUrl = pluginUrl.toLowerCase();
+        const matchesType = fileTypes.some(type => {
+          const regex = new RegExp(`\.${type}(\\?|$)`, 'i');
+          return regex.test(lowerUrl);
         });
+        
+        if (matchesType) {
+          resolved.push({
+            url: pluginUrl,
+            section,
+            title
+          });
+        }
       }
     }
   }
@@ -390,7 +415,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // Extract unique sections
       const sections = [...new Set(collectedLinks.map(item => item.section))].sort();
       
-      return resolveCollectedLinks(collectedLinks).then((links) => {
+      return resolveCollectedLinks(collectedLinks, fileTypes).then((links) => {
         console.log(`[Content] Resolved ${links.length} link${links.length === 1 ? '' : 's'}`);
         sendResponse({
           ok: true,
