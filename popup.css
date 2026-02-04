@@ -7,15 +7,19 @@
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
+  padding: 0;
+  height: auto;
+  overflow: visible;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #1d2433;
-  min-height: 100vh;
 }
 
 .container {
   width: 380px;
+  height: auto;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -121,6 +125,8 @@ h1 {
   background: #f8f9fc;
   cursor: pointer;
   transition: all 0.2s ease;
+  height: auto;
+  min-height: 100px;
 }
 
 .filter-section select:focus {
