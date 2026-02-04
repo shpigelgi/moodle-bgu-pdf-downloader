@@ -1,4 +1,18 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // Auto-resize popup to fit content
+  const resizePopup = () => {
+    const height = document.body.scrollHeight;
+    document.body.style.minHeight = `${height}px`;
+  };
+  
+  // Call resize on load and when content changes
+  window.addEventListener('load', resizePopup);
+  new MutationObserver(resizePopup).observe(document.body, { 
+    childList: true, 
+    subtree: true,
+    attributes: true 
+  });
+
   const statusEl = document.getElementById("status");
   const downloadBtn = document.getElementById("download");
   const sectionFilter = document.getElementById("section-filter");
