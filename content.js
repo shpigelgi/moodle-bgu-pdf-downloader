@@ -168,49 +168,62 @@ const collectSections = () => {
 };
 
 const getAvailableFileTypesInSections = (selectedSections) => {
-  const ALL_FILE_TYPES = ['pdf', 'pptx', 'docx', 'xlsx'];
+  // Map Moodle icon types to file extensions
+  const MOODLE_ICON_MAP = {
+    'pdf': 'pdf',
+    'powerpoint': 'pptx',
+    'document': 'docx',
+    'spreadsheet': 'xlsx',
+    'text': 'docx',  // Text files often become docx on download
+    'archive': null  // Skip archives (zip, etc.) - not in our supported types
+  };
+  
   const availableTypes = new Set();
   
   // If no sections specified, check all
   const checkAllSections = !selectedSections || selectedSections.length === 0;
   
   const mainContent = document.querySelector("#page-content") || document.body;
-  const anchors = Array.from(mainContent.querySelectorAll("a[href]"));
   
-  anchors.forEach(anchor => {
-    // Skip sidebar links
-    if (anchor.classList.contains("courseindex-link")) {
-      return;
-    }
-    
-    // Check if anchor is in a selected section
+  // Find all activity items (Moodle's resource wrapper elements)
+  const activityItems = Array.from(mainContent.querySelectorAll(".activity-item"));
+  
+  console.log(`[Content] Found ${activityItems.length} activity items. All sections: ${checkAllSections}, Selected:`, selectedSections);
+  
+  activityItems.forEach(item => {
+    // Check if this item is in a selected section
     if (!checkAllSections) {
-      const sectionTitle = getSectionTitle(anchor);
+      const sectionElement = item.closest("li.section.course-section");
+      if (!sectionElement) return;
+      
+      const sectionTitle = sectionElement.querySelector("h3.sectionname")?.textContent?.trim() || "";
       if (!selectedSections.includes(sectionTitle)) {
         return;
       }
     }
     
-    const href = anchor.getAttribute("href");
-    if (!href) return;
+    // Find the file type icon
+    const iconImg = item.querySelector("img[src*='/f/']");
+    if (!iconImg) return;
     
-    const lowerHref = href.toLowerCase();
-    
-    // Check each file type
-    ALL_FILE_TYPES.forEach(fileType => {
-      if (lowerHref.includes(`.${fileType}`)) {
+    // Extract file type from icon URL (e.g., /f/pdf-24 -> pdf)
+    const iconSrc = iconImg.src;
+    const match = iconSrc.match(/\/f\/([^-/]+)/);
+    if (match) {
+      const moodleType = match[1];
+      const fileType = MOODLE_ICON_MAP[moodleType];
+      
+      if (fileType) {
         availableTypes.add(fileType);
+        const itemName = item.getAttribute('data-activityname') || '';
+        console.log(`[Content] Found ${fileType} (${moodleType}):`, itemName);
       }
-    });
-    
-    // Moodle resource pages might contain any file type
-    if (lowerHref.includes("/mod/resource/view.php")) {
-      // We can't know the type without fetching, so add all types as potentially available
-      ALL_FILE_TYPES.forEach(type => availableTypes.add(type));
     }
   });
   
-  return Array.from(availableTypes).sort();
+  const result = Array.from(availableTypes).sort();
+  console.log(`[Content] Final detected file types:`, result);
+  return result;
 };
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

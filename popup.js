@@ -76,10 +76,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const selectedSections = getSelectedSections();
       const sectionsToQuery = selectedSections || []; // Empty array means all sections
       
+      console.log("[Popup] Section changed. Querying types for:", sectionsToQuery.length > 0 ? sectionsToQuery : "ALL");
+      
       const availableTypes = await queryAvailableFileTypes(tab.id, sectionsToQuery);
       updateFileTypeCheckboxes(availableTypes);
     } catch (error) {
-      console.log("[Popup] Could not update file types:", error.message);
+      console.error("[Popup] Could not update file types:", error);
       // Don't break functionality - just skip the update
     }
   });
@@ -188,11 +190,17 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const updateFileTypeCheckboxes = (availableTypes) => {
+    console.log("[Popup] Updating checkboxes with available types:", availableTypes);
+    
     const checkboxes = document.querySelectorAll('input[name="filetype"]');
     
     checkboxes.forEach(checkbox => {
-      const isAvailable = availableTypes.length === 0 || availableTypes.includes(checkbox.value);
+      const fileType = checkbox.value;
+      const isAvailable = availableTypes.includes(fileType);
       
+      console.log(`[Popup] ${fileType}: available=${isAvailable}`);
+      
+      // Enable/disable checkbox
       checkbox.disabled = !isAvailable;
       
       // Uncheck if not available
@@ -200,25 +208,33 @@ document.addEventListener("DOMContentLoaded", () => {
         checkbox.checked = false;
       }
       
-      // Update visual feedback
+      // Update visual feedback on the label
       const label = checkbox.closest('.checkbox-label');
       if (label) {
-        label.style.opacity = isAvailable ? '1' : '0.4';
-        label.style.cursor = isAvailable ? 'pointer' : 'not-allowed';
+        if (isAvailable) {
+          label.style.opacity = '1';
+          label.style.cursor = 'pointer';
+          label.style.pointerEvents = 'auto';
+        } else {
+          label.style.opacity = '0.3';
+          label.style.cursor = 'not-allowed';
+          label.style.pointerEvents = 'none';
+        }
       }
     });
     
-    // Ensure at least one is checked
-    const anyChecked = Array.from(checkboxes).some(cb => cb.checked && !cb.disabled);
-    if (!anyChecked) {
-      // Check the first available checkbox
-      const firstAvailable = Array.from(checkboxes).find(cb => !cb.disabled);
-      if (firstAvailable) {
-        firstAvailable.checked = true;
+    // Ensure at least one is checked if any are available
+    if (availableTypes.length > 0) {
+      const anyChecked = Array.from(checkboxes).some(cb => cb.checked && !cb.disabled);
+      if (!anyChecked) {
+        // Check the first available checkbox
+        const firstAvailable = Array.from(checkboxes).find(cb => !cb.disabled);
+        if (firstAvailable) {
+          firstAvailable.checked = true;
+          console.log("[Popup] Auto-checked first available:", firstAvailable.value);
+        }
       }
     }
-    
-    console.log("[Popup] Updated file type checkboxes. Available:", availableTypes);
   };
 
   downloadBtn.addEventListener("click", async () => {
