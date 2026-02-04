@@ -167,6 +167,52 @@ const collectSections = () => {
   return sectionList;
 };
 
+const getAvailableFileTypesInSections = (selectedSections) => {
+  const ALL_FILE_TYPES = ['pdf', 'pptx', 'docx', 'xlsx'];
+  const availableTypes = new Set();
+  
+  // If no sections specified, check all
+  const checkAllSections = !selectedSections || selectedSections.length === 0;
+  
+  const mainContent = document.querySelector("#page-content") || document.body;
+  const anchors = Array.from(mainContent.querySelectorAll("a[href]"));
+  
+  anchors.forEach(anchor => {
+    // Skip sidebar links
+    if (anchor.classList.contains("courseindex-link")) {
+      return;
+    }
+    
+    // Check if anchor is in a selected section
+    if (!checkAllSections) {
+      const sectionTitle = getSectionTitle(anchor);
+      if (!selectedSections.includes(sectionTitle)) {
+        return;
+      }
+    }
+    
+    const href = anchor.getAttribute("href");
+    if (!href) return;
+    
+    const lowerHref = href.toLowerCase();
+    
+    // Check each file type
+    ALL_FILE_TYPES.forEach(fileType => {
+      if (lowerHref.includes(`.${fileType}`)) {
+        availableTypes.add(fileType);
+      }
+    });
+    
+    // Moodle resource pages might contain any file type
+    if (lowerHref.includes("/mod/resource/view.php")) {
+      // We can't know the type without fetching, so add all types as potentially available
+      ALL_FILE_TYPES.forEach(type => availableTypes.add(type));
+    }
+  });
+  
+  return Array.from(availableTypes).sort();
+};
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "collect_sections") {
     const sections = collectSections();
@@ -176,6 +222,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       ok: true,
       sections,
       courseTitle
+    });
+    return true;
+  }
+
+  if (message?.type === "get_available_types") {
+    const sections = message.sections || [];
+    const availableTypes = getAvailableFileTypesInSections(sections);
+    
+    console.log(`[Content] Available types in sections:`, availableTypes);
+    
+    sendResponse({
+      ok: true,
+      availableTypes
     });
     return true;
   }

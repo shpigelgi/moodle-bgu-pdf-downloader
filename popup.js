@@ -53,8 +53,8 @@ document.addEventListener("DOMContentLoaded", () => {
     return 'files';
   };
 
-  // Handle "All" selection logic
-  sectionFilter.addEventListener("change", () => {
+  // Handle "All" selection logic and update available file types
+  sectionFilter.addEventListener("change", async () => {
     const selected = Array.from(sectionFilter.selectedOptions);
     const allOption = sectionFilter.querySelector('option[value="__all__"]');
     
@@ -68,6 +68,19 @@ document.addEventListener("DOMContentLoaded", () => {
     // If no selection, select "All"
     if (selected.length === 0) {
       allOption.selected = true;
+    }
+    
+    // Update available file types based on selected sections
+    try {
+      const tab = await withActiveTab();
+      const selectedSections = getSelectedSections();
+      const sectionsToQuery = selectedSections || []; // Empty array means all sections
+      
+      const availableTypes = await queryAvailableFileTypes(tab.id, sectionsToQuery);
+      updateFileTypeCheckboxes(availableTypes);
+    } catch (error) {
+      console.log("[Popup] Could not update file types:", error.message);
+      // Don't break functionality - just skip the update
     }
   });
 
@@ -151,6 +164,63 @@ document.addEventListener("DOMContentLoaded", () => {
     return tab;
   };
 
+  const queryAvailableFileTypes = async (tabId, sections) => {
+    try {
+      const response = await new Promise((resolve, reject) => {
+        chrome.tabs.sendMessage(
+          tabId,
+          { type: "get_available_types", sections },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              reject(chrome.runtime.lastError);
+              return;
+            }
+            resolve(response);
+          }
+        );
+      });
+      
+      return response?.availableTypes || [];
+    } catch (error) {
+      console.error("[Popup] Error querying file types:", error);
+      return []; // Return empty array on error, don't break functionality
+    }
+  };
+
+  const updateFileTypeCheckboxes = (availableTypes) => {
+    const checkboxes = document.querySelectorAll('input[name="filetype"]');
+    
+    checkboxes.forEach(checkbox => {
+      const isAvailable = availableTypes.length === 0 || availableTypes.includes(checkbox.value);
+      
+      checkbox.disabled = !isAvailable;
+      
+      // Uncheck if not available
+      if (!isAvailable && checkbox.checked) {
+        checkbox.checked = false;
+      }
+      
+      // Update visual feedback
+      const label = checkbox.closest('.checkbox-label');
+      if (label) {
+        label.style.opacity = isAvailable ? '1' : '0.4';
+        label.style.cursor = isAvailable ? 'pointer' : 'not-allowed';
+      }
+    });
+    
+    // Ensure at least one is checked
+    const anyChecked = Array.from(checkboxes).some(cb => cb.checked && !cb.disabled);
+    if (!anyChecked) {
+      // Check the first available checkbox
+      const firstAvailable = Array.from(checkboxes).find(cb => !cb.disabled);
+      if (firstAvailable) {
+        firstAvailable.checked = true;
+      }
+    }
+    
+    console.log("[Popup] Updated file type checkboxes. Available:", availableTypes);
+  };
+
   downloadBtn.addEventListener("click", async () => {
     console.log("[Popup] Download button clicked");
     downloadBtn.disabled = true;
@@ -232,6 +302,16 @@ document.addEventListener("DOMContentLoaded", () => {
       // Populate section filter
       if (scannedSections.length > 0) {
         populateSections(scannedSections);
+        
+        // Query and update available file types for all sections
+        try {
+          const availableTypes = await queryAvailableFileTypes(tab.id, []);
+          updateFileTypeCheckboxes(availableTypes);
+        } catch (error) {
+          console.log("[Popup] Could not query initial file types:", error.message);
+          // Continue without file type filtering
+        }
+        
         setStatus("Select sections and click to download.");
         downloadBtn.disabled = false;
       } else {
