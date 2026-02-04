@@ -13,9 +13,6 @@ A Chrome extension to bulk download course materials (PDFs, PowerPoint, Word, Ex
 
 ## Installation
 
-### From Chrome Web Store
-*Coming soon*
-
 ### From Source
 1. Download or clone this repository
 2. Open Chrome and go to `chrome://extensions/`
