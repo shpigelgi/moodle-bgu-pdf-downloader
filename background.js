@@ -104,7 +104,8 @@ const queueDownloads = async (links, courseFolder) => {
           {
             url: url,
             filename: fullPath,
-            conflictAction: "uniquify"
+            conflictAction: "uniquify",
+            saveAs: false  // Suppress download prompt, use default Downloads folder
           },
           (downloadId) => {
             if (chrome.runtime.lastError) {
