@@ -4,7 +4,7 @@
 // 2. In Popup (via <script> tag)
 // 3. In Background Service Worker (via importScripts)
 
-const FILE_TYPES = {
+var FILE_TYPES = {
     'pdf': {
         extensions: ['pdf'],
         label: 'PDF',
@@ -33,7 +33,7 @@ const FILE_TYPES = {
     }
 };
 
-const MOODLE_ICON_MAP = {
+var MOODLE_ICON_MAP = {
     'pdf': 'pdf',
     'powerpoint': 'pptx',
     'document': 'docx',

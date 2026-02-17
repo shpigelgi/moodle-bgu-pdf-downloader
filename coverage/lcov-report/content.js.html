@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">14.74% </span>
+                <span class="strong">14.9% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>37/251</span>
+                <span class='fraction'>38/255</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">15.07% </span>
+                <span class="strong">15.38% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>19/126</span>
+                <span class='fraction'>20/130</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">14.97% </span>
+                <span class="strong">15.13% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>37/247</span>
+                <span class='fraction'>38/251</span>
             </div>
         
             
@@ -556,7 +556,23 @@
 <a name='L491'></a><a href='#L491'>491</a>
 <a name='L492'></a><a href='#L492'>492</a>
 <a name='L493'></a><a href='#L493'>493</a>
-<a name='L494'></a><a href='#L494'>494</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L494'></a><a href='#L494'>494</a>
+<a name='L495'></a><a href='#L495'>495</a>
+<a name='L496'></a><a href='#L496'>496</a>
+<a name='L497'></a><a href='#L497'>497</a>
+<a name='L498'></a><a href='#L498'>498</a>
+<a name='L499'></a><a href='#L499'>499</a>
+<a name='L500'></a><a href='#L500'>500</a>
+<a name='L501'></a><a href='#L501'>501</a>
+<a name='L502'></a><a href='#L502'>502</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
@@ -1049,10 +1065,18 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">const getCourseTitle = <span class="fstat-no" title="function not covered" >()</span> =&gt;
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="missing-if-branch" title="if path not taken" >I</span>if (typeof window !== 'undefined') {
+<span class="cstat-no" title="statement not covered" >  if (window.pdfDownloaderContentInjected) {</span>
+<span class="cstat-no" title="statement not covered" >    console.log("[Content] Script already injected, skipping initialization.");</span>
+  } else {
+<span class="cstat-no" title="statement not covered" >    window.pdfDownloaderContentInjected = true;</span>
+  }
+}
+&nbsp;
+var getCourseTitle = <span class="fstat-no" title="function not covered" >()</span> =&gt;
 <span class="cstat-no" title="statement not covered" >  document.querySelector("h1")?.textContent?.trim() || document.title || "Moodle Course";</span>
 &nbsp;
-const getSectionTitle = (element) =&gt; {
+var getSectionTitle = (element) =&gt; {
   // The structure is: li.section.course-section &gt; header + div.content &gt; ul.section &gt; li.activity &gt; a
   // We need to go up from the anchor to the outermost li.section
 &nbsp;
@@ -1071,7 +1095,7 @@ const getSectionTitle = (element) =&gt; {
   return "General";
 };
 &nbsp;
-const getResourceTitle = (anchor) =&gt; {
+var getResourceTitle = (anchor) =&gt; {
   let text = anchor.textContent?.trim();
   if (text &amp;&amp; text.length &gt; 0) {
     // Remove Moodle UI labels (Hebrew and English)
@@ -1088,7 +1112,7 @@ const getResourceTitle = (anchor) =&gt; {
   return anchor.getAttribute("href")?.split("/").pop() || <span class="branch-1 cbranch-no" title="branch not covered" >"resource";</span>
 };
 &nbsp;
-const looksLikePdf = (url, fileTypes) =&gt; {
+var looksLikePdf = (url, fileTypes) =&gt; {
   if (!url) {
     return false;
   }
@@ -1113,7 +1137,7 @@ const looksLikePdf = (url, fileTypes) =&gt; {
   return regex.test(lowerUrl);
 };
 &nbsp;
-const looksLikeMoodleResource = <span class="fstat-no" title="function not covered" >(u</span>rl) =&gt; {
+var looksLikeMoodleResource = <span class="fstat-no" title="function not covered" >(u</span>rl) =&gt; {
 <span class="cstat-no" title="statement not covered" >  if (!url) {</span>
 <span class="cstat-no" title="statement not covered" >    return false;</span>
   }
@@ -1121,7 +1145,7 @@ const looksLikeMoodleResource = <span class="fstat-no" title="function not cover
 <span class="cstat-no" title="statement not covered" >  return url.includes("/mod/resource/view.php");</span>
 };
 &nbsp;
-const collectLinks = <span class="fstat-no" title="function not covered" >as</span>ync (fileTypes) =&gt; {
+var collectLinks = <span class="fstat-no" title="function not covered" >as</span>ync (fileTypes) =&gt; {
   // Only look for anchors in the main content area, not in the sidebar index
   const mainContent = <span class="cstat-no" title="statement not covered" >document.querySelector("#page-content") || document.body;</span>
   const anchors = <span class="cstat-no" title="statement not covered" >Array.from(mainContent.querySelectorAll("a[href]"));</span>
@@ -1269,7 +1293,7 @@ const collectLinks = <span class="fstat-no" title="function not covered" >as</sp
 <span class="cstat-no" title="statement not covered" >  return links;</span>
 };
 &nbsp;
-const resolveResourceLink = <span class="fstat-no" title="function not covered" >as</span>ync (url) =&gt; {
+var resolveResourceLink = <span class="fstat-no" title="function not covered" >as</span>ync (url) =&gt; {
 <span class="cstat-no" title="statement not covered" >  try {</span>
     // Fetch with redirect:follow to get final URL
     const response = <span class="cstat-no" title="statement not covered" >await fetch(url, { redirect: 'follow' });</span>
@@ -1298,7 +1322,7 @@ const resolveResourceLink = <span class="fstat-no" title="function not covered" 
   }
 };
 &nbsp;
-const resolveCollectedLinks = <span class="fstat-no" title="function not covered" >as</span>ync (collectedLinks, fileTypes) =&gt; {
+var resolveCollectedLinks = <span class="fstat-no" title="function not covered" >as</span>ync (collectedLinks, fileTypes) =&gt; {
   const resolved = <span class="cstat-no" title="statement not covered" >[];</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  for (const item of collectedLinks) {</span>
@@ -1339,7 +1363,7 @@ const resolveCollectedLinks = <span class="fstat-no" title="function not covered
 <span class="cstat-no" title="statement not covered" >  return resolved;</span>
 };
 &nbsp;
-const collectSections = <span class="fstat-no" title="function not covered" >()</span> =&gt; {
+var collectSections = <span class="fstat-no" title="function not covered" >()</span> =&gt; {
   const sections = <span class="cstat-no" title="statement not covered" >new Set();</span>
   const sectionElements = <span class="cstat-no" title="statement not covered" >document.querySelectorAll("li.section.course-section");</span>
 &nbsp;
@@ -1359,7 +1383,7 @@ const collectSections = <span class="fstat-no" title="function not covered" >()<
 <span class="cstat-no" title="statement not covered" >  return sectionList;</span>
 };
 &nbsp;
-const getAvailableFileTypesInSections = <span class="fstat-no" title="function not covered" >as</span>ync (selectedSections) =&gt; {
+var getAvailableFileTypesInSections = <span class="fstat-no" title="function not covered" >as</span>ync (selectedSections) =&gt; {
   // Map Moodle icon types to file extensions
   // Use global map if available, otherwise fallback
   const iconMap = <span class="cstat-no" title="statement not covered" >(typeof MOODLE_ICON_MAP !== 'undefined') ? MOODLE_ICON_MAP : {</span>
@@ -1549,7 +1573,7 @@ chrome.runtime.onMessage.addListener(<span class="fstat-no" title="function not 
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-17T13:14:57.303Z
+                at 2026-02-17T13:26:54.605Z
             </div>
         <script src="prettify.js"></script>
         <script>

@@ -67,22 +67,33 @@ document.addEventListener("DOMContentLoaded", () => {
     return 'files';
   };
 
+  // Track previous selection to detect what was clicked
+  let previousSelected = ['__all__'];
+
   // Handle "All" selection logic and update available file types
   sectionFilter.addEventListener("change", async () => {
-    const selected = Array.from(sectionFilter.selectedOptions);
+    const currentSelected = Array.from(sectionFilter.selectedOptions).map(opt => opt.value);
     const allOption = sectionFilter.querySelector('option[value="__all__"]');
 
-    // If "All" is selected with others, deselect others
-    if (selected.length > 1 && selected.some(opt => opt.value === "__all__")) {
+    // Logic to toggle "All" vs Specific Sections
+    const wasAllSelected = previousSelected.includes('__all__');
+    const isAllSelected = currentSelected.includes('__all__');
+
+    if (wasAllSelected && currentSelected.length > 1) {
+      // User had "All" and clicked a specific section -> Deselect "All"
+      if (allOption) allOption.selected = false;
+    } else if (!wasAllSelected && isAllSelected && currentSelected.length > 1) {
+      // User had specific sections and clicked "All" -> Deselect others
       Array.from(sectionFilter.options).forEach(opt => {
-        opt.selected = opt.value === "__all__";
+        if (opt.value !== '__all__') opt.selected = false;
       });
+    } else if (currentSelected.length === 0) {
+      // User deselected everything -> Re-select "All"
+      if (allOption) allOption.selected = true;
     }
 
-    // If no selection, select "All"
-    if (selected.length === 0) {
-      allOption.selected = true;
-    }
+    // Update state
+    previousSelected = Array.from(sectionFilter.selectedOptions).map(opt => opt.value);
 
     // Update available file types based on selected sections
     try {
@@ -116,7 +127,8 @@ document.addEventListener("DOMContentLoaded", () => {
         (response) => {
           console.log(`[Popup] Sections response:`, response);
           if (chrome.runtime.lastError) {
-            console.error(`[Popup] Message error:`, chrome.runtime.lastError);
+            const msg = chrome.runtime.lastError.message;
+            console.warn(`[Popup] Message error (will retry):`, msg);
             reject(chrome.runtime.lastError);
             return;
           }

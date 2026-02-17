@@ -1,7 +1,15 @@
-const getCourseTitle = () =>
+if (typeof window !== 'undefined') {
+  if (window.pdfDownloaderContentInjected) {
+    console.log("[Content] Script already injected, skipping initialization.");
+  } else {
+    window.pdfDownloaderContentInjected = true;
+  }
+}
+
+var getCourseTitle = () =>
   document.querySelector("h1")?.textContent?.trim() || document.title || "Moodle Course";
 
-const getSectionTitle = (element) => {
+var getSectionTitle = (element) => {
   // The structure is: li.section.course-section > header + div.content > ul.section > li.activity > a
   // We need to go up from the anchor to the outermost li.section
 
@@ -20,7 +28,7 @@ const getSectionTitle = (element) => {
   return "General";
 };
 
-const getResourceTitle = (anchor) => {
+var getResourceTitle = (anchor) => {
   let text = anchor.textContent?.trim();
   if (text && text.length > 0) {
     // Remove Moodle UI labels (Hebrew and English)
@@ -37,7 +45,7 @@ const getResourceTitle = (anchor) => {
   return anchor.getAttribute("href")?.split("/").pop() || "resource";
 };
 
-const looksLikePdf = (url, fileTypes) => {
+var looksLikePdf = (url, fileTypes) => {
   if (!url) {
     return false;
   }
@@ -62,7 +70,7 @@ const looksLikePdf = (url, fileTypes) => {
   return regex.test(lowerUrl);
 };
 
-const looksLikeMoodleResource = (url) => {
+var looksLikeMoodleResource = (url) => {
   if (!url) {
     return false;
   }
@@ -70,7 +78,7 @@ const looksLikeMoodleResource = (url) => {
   return url.includes("/mod/resource/view.php");
 };
 
-const collectLinks = async (fileTypes) => {
+var collectLinks = async (fileTypes) => {
   // Only look for anchors in the main content area, not in the sidebar index
   const mainContent = document.querySelector("#page-content") || document.body;
   const anchors = Array.from(mainContent.querySelectorAll("a[href]"));
@@ -218,7 +226,7 @@ const collectLinks = async (fileTypes) => {
   return links;
 };
 
-const resolveResourceLink = async (url) => {
+var resolveResourceLink = async (url) => {
   try {
     // Fetch with redirect:follow to get final URL
     const response = await fetch(url, { redirect: 'follow' });
@@ -247,7 +255,7 @@ const resolveResourceLink = async (url) => {
   }
 };
 
-const resolveCollectedLinks = async (collectedLinks, fileTypes) => {
+var resolveCollectedLinks = async (collectedLinks, fileTypes) => {
   const resolved = [];
 
   for (const item of collectedLinks) {
@@ -288,7 +296,7 @@ const resolveCollectedLinks = async (collectedLinks, fileTypes) => {
   return resolved;
 };
 
-const collectSections = () => {
+var collectSections = () => {
   const sections = new Set();
   const sectionElements = document.querySelectorAll("li.section.course-section");
 
@@ -308,7 +316,7 @@ const collectSections = () => {
   return sectionList;
 };
 
-const getAvailableFileTypesInSections = async (selectedSections) => {
+var getAvailableFileTypesInSections = async (selectedSections) => {
   // Map Moodle icon types to file extensions
   // Use global map if available, otherwise fallback
   const iconMap = (typeof MOODLE_ICON_MAP !== 'undefined') ? MOODLE_ICON_MAP : {
