@@ -78,12 +78,22 @@ var looksLikeMoodleResource = (url) => {
   return url.includes("/mod/resource/view.php");
 };
 
-var collectLinks = async (fileTypes) => {
+var collectLinks = async (fileTypes, selectedSections = null) => {
   // Only look for anchors in the main content area, not in the sidebar index
   const mainContent = document.querySelector("#page-content") || document.body;
   const anchors = Array.from(mainContent.querySelectorAll("a[href]"));
   const links = [];
   const seen = new Set();
+
+  console.log('[Content] Collecting links for file types:', fileTypes, 'in sections:', selectedSections || 'ALL');
+
+  // Helper to check if a section should be included
+  const shouldIncludeSection = (section) => {
+    if (!selectedSections || selectedSections.length === 0) {
+      return true; // Include all sections if none specified
+    }
+    return selectedSections.includes(section);
+  };
 
   // Helper to collect files from folder page
   const collectFromFolder = async (folderUrl, folderName, section) => {
@@ -185,8 +195,15 @@ var collectLinks = async (fileTypes) => {
 
     if ((isPdf || isMoodleRes) && !seen.has(absoluteUrl)) {
       seen.add(absoluteUrl);
-      const section = getSectionTitle(anchor);
-      const title = getResourceTitle(anchor);
+      const section = anchor.closest("li.section")?.querySelector("h3")?.textContent.trim() || "Unknown";
+      const title = anchor.textContent.trim() || "Untitled";
+
+      // Skip if section is not in selected sections
+      if (!shouldIncludeSection(section)) {
+        console.log(`[Content] Skipping link in section "${section}" (not selected)`);
+        continue;
+      }
+
       links.push({ url: absoluteUrl, section, title });
     }
   }
@@ -465,9 +482,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       ? message.fileTypes
       : ["pdf"];
 
-    collectLinks(fileTypes).then(collectedLinks => {
+    const sections = message.sections || null;
+
+    collectLinks(fileTypes, sections).then(collectedLinks => {
       // Extract unique sections
-      const sections = [...new Set(collectedLinks.map(item => item.section))].sort();
+      const allSections = [...new Set(collectedLinks.map(item => item.section))].sort();
 
       return resolveCollectedLinks(collectedLinks, fileTypes).then((links) => {
         console.log(`[Content] Resolved ${links.length} link${links.length === 1 ? '' : 's'}`);
@@ -475,14 +494,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           ok: true,
           links,
           courseTitle: getCourseTitle(),
-          sections
+          sections: allSections
         });
       });
-    }).catch((error) => {
-      console.error("[Content] Error collecting/resolving links:", error);
+    }).catch(error => {
+      console.error("[Content] Error collecting links:", error);
       sendResponse({
         ok: false,
-        error: error.message || "Failed to resolve file links"
+        error: error.message
       });
     });
 

@@ -197,12 +197,12 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     });
 
-  const collectLinks = (tabId, fileTypes) =>
+  const collectLinks = (tabId, fileTypes, sections = null) =>
     new Promise((resolve, reject) => {
-      console.log(`[Popup] Sending collect_links message to tab ${tabId}`);
+      console.log(`[Popup] Sending collect_links message to tab ${tabId}`, { fileTypes, sections });
       chrome.tabs.sendMessage(
         tabId,
-        { type: "collect_links", fileTypes },
+        { type: "collect_links", fileTypes, sections },
         (response) => {
           console.log(`[Popup] Response received:`, response);
           if (chrome.runtime.lastError) {
@@ -370,25 +370,27 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const tab = await withActiveTab();
 
+      // Get selected sections BEFORE collecting links
+      const selectedSections = getSelectedSections();
+
       let response;
       try {
-        response = await collectLinks(tab.id, fileTypes);
+        response = await collectLinks(tab.id, fileTypes, selectedSections);
       } catch (error) {
         console.log("[Popup] Injecting content script after initial failure");
         await injectContentScript(tab.id);
-        response = await collectLinks(tab.id, fileTypes);
+        response = await collectLinks(tab.id, fileTypes, selectedSections);
       }
 
       scannedLinks = response?.links || [];
 
       if (!scannedLinks.length) {
-        setStatus(`No ${fileTypeText} found on this page.`);
+        setStatus(`No ${fileTypeText} found in selected sections.`);
         downloadBtn.disabled = false;
         return;
       }
 
-      // Filter links by selected sections
-      const selectedSections = getSelectedSections();
+      // Filter links by selected sections (redundant now but keeping for safety)
       let filteredLinks = scannedLinks;
       if (selectedSections) {
         filteredLinks = scannedLinks.filter(link => selectedSections.includes(link.section));
