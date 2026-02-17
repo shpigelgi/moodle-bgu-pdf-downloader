@@ -15,9 +15,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const statusEl = document.getElementById("status");
   const downloadBtn = document.getElementById("download");
-  const sectionFilter = document.getElementById("section-filter");
+  const sectionDropdown = document.getElementById("section-dropdown");
+  const sectionToggle = document.getElementById("section-toggle");
+  const sectionMenu = document.getElementById("section-menu");
+  const dropdownText = sectionToggle.querySelector('.dropdown-text');
 
-  console.log("[Popup] Initializing...", { statusEl, downloadBtn, sectionFilter });
+  console.log("[Popup] Initializing...", { statusEl, downloadBtn, sectionDropdown });
 
   // Store scanned data
   let scannedLinks = [];
@@ -34,21 +37,43 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Clear existing options except "All"
-    sectionFilter.innerHTML = '<option value="__all__" selected>All Sections</option>';
+    // Clear existing items except "All"
+    const allCheckbox = sectionMenu.querySelector('input[value="__all__"]');
+    sectionMenu.innerHTML = '';
 
+    // Re-add "All Sections" checkbox
+    const allItem = document.createElement('div');
+    allItem.className = 'dropdown-item';
+    allItem.innerHTML = `
+      <label class="dropdown-checkbox-label">
+        <input type="checkbox" value="__all__" checked data-section-checkbox>
+        <span>All Sections</span>
+      </label>
+    `;
+    sectionMenu.appendChild(allItem);
+
+    // Add section checkboxes
     sections.forEach(section => {
       if (!section || typeof section !== 'string') return;
 
-      const option = document.createElement("option");
-      option.value = section;
-      option.textContent = section;
-      sectionFilter.appendChild(option);
+      const item = document.createElement('div');
+      item.className = 'dropdown-item';
+      item.innerHTML = `
+        <label class="dropdown-checkbox-label">
+          <input type="checkbox" value="${section}" data-section-checkbox>
+          <span>${section}</span>
+        </label>
+      `;
+      sectionMenu.appendChild(item);
     });
+
+    // Attach event listeners to new checkboxes
+    attachSectionCheckboxListeners();
   };
 
   const getSelectedSections = () => {
-    const selected = Array.from(sectionFilter.selectedOptions).map(opt => opt.value);
+    const checkboxes = sectionMenu.querySelectorAll('input[data-section-checkbox]:checked');
+    const selected = Array.from(checkboxes).map(cb => cb.value);
     if (selected.includes("__all__")) {
       return null; // null means all sections
     }
@@ -70,44 +95,79 @@ document.addEventListener("DOMContentLoaded", () => {
   // Track previous selection to detect what was clicked
   let previousSelected = ['__all__'];
 
-  // Handle "All" selection logic and update available file types
-  sectionFilter.addEventListener("change", async () => {
-    const currentSelected = Array.from(sectionFilter.selectedOptions).map(opt => opt.value);
-    const allOption = sectionFilter.querySelector('option[value="__all__"]');
+  // Update dropdown text based on selections
+  const updateDropdownText = () => {
+    const checkboxes = sectionMenu.querySelectorAll('input[data-section-checkbox]:checked');
+    const selected = Array.from(checkboxes).map(cb => cb.value);
 
-    // Logic to toggle "All" vs Specific Sections
-    const wasAllSelected = previousSelected.includes('__all__');
-    const isAllSelected = currentSelected.includes('__all__');
-
-    if (wasAllSelected && currentSelected.length > 1) {
-      // User had "All" and clicked a specific section -> Deselect "All"
-      if (allOption) allOption.selected = false;
-    } else if (!wasAllSelected && isAllSelected && currentSelected.length > 1) {
-      // User had specific sections and clicked "All" -> Deselect others
-      Array.from(sectionFilter.options).forEach(opt => {
-        if (opt.value !== '__all__') opt.selected = false;
-      });
-    } else if (currentSelected.length === 0) {
-      // User deselected everything -> Re-select "All"
-      if (allOption) allOption.selected = true;
+    if (selected.includes('__all__') || selected.length === 0) {
+      dropdownText.textContent = 'All Sections';
+    } else if (selected.length === 1) {
+      const checkbox = sectionMenu.querySelector(`input[value="${selected[0]}"]`);
+      const label = checkbox.closest('label').querySelector('span').textContent;
+      dropdownText.textContent = label;
+    } else {
+      dropdownText.textContent = `${selected.length} sections selected`;
     }
+  };
 
-    // Update state
-    previousSelected = Array.from(sectionFilter.selectedOptions).map(opt => opt.value);
+  // Handle checkbox changes
+  const attachSectionCheckboxListeners = () => {
+    const checkboxes = sectionMenu.querySelectorAll('input[data-section-checkbox]');
 
-    // Update available file types based on selected sections
-    try {
-      const tab = await withActiveTab();
-      const selectedSections = getSelectedSections();
-      const sectionsToQuery = selectedSections || []; // Empty array means all sections
+    checkboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', async () => {
+        const allCheckbox = sectionMenu.querySelector('input[value="__all__"]');
+        const otherCheckboxes = Array.from(checkboxes).filter(cb => cb.value !== '__all__');
 
-      console.log("[Popup] Section changed. Querying types for:", sectionsToQuery.length > 0 ? sectionsToQuery : "ALL");
+        if (checkbox.value === '__all__') {
+          // If "All" is checked, uncheck all others
+          if (checkbox.checked) {
+            otherCheckboxes.forEach(cb => cb.checked = false);
+          }
+        } else {
+          // If a specific section is checked, uncheck "All"
+          if (checkbox.checked && allCheckbox) {
+            allCheckbox.checked = false;
+          }
 
-      const availableTypes = await queryAvailableFileTypes(tab.id, sectionsToQuery);
-      updateFileTypeCheckboxes(availableTypes);
-    } catch (error) {
-      console.error("[Popup] Could not update file types:", error);
-      // Don't break functionality - just skip the update
+          // If all specific sections are unchecked, check "All"
+          const anyChecked = otherCheckboxes.some(cb => cb.checked);
+          if (!anyChecked && allCheckbox) {
+            allCheckbox.checked = true;
+          }
+        }
+
+        updateDropdownText();
+
+        // Update available file types based on selected sections
+        try {
+          const tab = await withActiveTab();
+          const selectedSections = getSelectedSections();
+          const sectionsToQuery = selectedSections || [];
+
+          console.log('[Popup] Section changed. Querying file types for:', sectionsToQuery.length > 0 ? sectionsToQuery : 'ALL');
+
+          const availableTypes = await queryAvailableFileTypes(tab.id, sectionsToQuery);
+          updateFileTypeCheckboxes(availableTypes);
+        } catch (error) {
+          console.warn('[Popup] Could not update file types:', error.message);
+          // Don't break functionality - just skip the update
+        }
+      });
+    });
+  };
+
+  // Toggle dropdown open/close
+  sectionToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    sectionDropdown.classList.toggle('open');
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!sectionDropdown.contains(e.target)) {
+      sectionDropdown.classList.remove('open');
     }
   });
 

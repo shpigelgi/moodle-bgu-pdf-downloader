@@ -1,62 +1,76 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Moodle PDF Downloader</title>
-    <link rel="stylesheet" href="popup.css" />
-  </head>
-  <body>
-    <main class="container">
-      <div class="header">
-        <h1>📚 Moodle PDF Downloader</h1>
-        <p class="subtitle">Download PDFs from your course</p>
-      </div>
 
-      <div class="filter-section">
-        <label>File Types</label>
-        <div class="file-types">
-          <label class="checkbox-label">
-            <input type="checkbox" name="filetype" value="pdf" checked>
-            <span class="checkbox-text">📄 PDF</span>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" name="filetype" value="pptx">
-            <span class="checkbox-text">📊 PowerPoint</span>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" name="filetype" value="docx">
-            <span class="checkbox-text">📝 Word</span>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" name="filetype" value="xlsx">
-            <span class="checkbox-text">📈 Excel</span>
-          </label>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Moodle PDF Downloader</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+
+<body>
+  <main class="container">
+    <div class="header">
+      <h1>📚 Moodle PDF Downloader</h1>
+      <p class="subtitle">Download PDFs from your course</p>
+    </div>
+
+    <div class="filter-section">
+      <label>File Types</label>
+      <div class="file-types">
+        <label class="checkbox-label">
+          <input type="checkbox" name="filetype" value="pdf" checked>
+          <span class="checkbox-text">📄 PDF</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" name="filetype" value="pptx">
+          <span class="checkbox-text">📊 PowerPoint</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" name="filetype" value="docx">
+          <span class="checkbox-text">📝 Word</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" name="filetype" value="xlsx">
+          <span class="checkbox-text">📈 Excel</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="filter-section">
+      <label>Select Sections</label>
+      <div class="custom-dropdown" id="section-dropdown">
+        <button type="button" class="dropdown-toggle" id="section-toggle">
+          <span class="dropdown-text">All Sections</span>
+          <span class="dropdown-arrow">▼</span>
+        </button>
+        <div class="dropdown-menu" id="section-menu">
+          <div class="dropdown-item">
+            <label class="dropdown-checkbox-label">
+              <input type="checkbox" value="__all__" checked data-section-checkbox>
+              <span>All Sections</span>
+            </label>
+          </div>
+          <!-- Dynamic sections will be added here -->
         </div>
       </div>
+    </div>
 
-      <div class="filter-section">
-        <label for="section-filter">Select Sections</label>
-        <div class="select-hint">Hold <kbd>Ctrl</kbd> (or <kbd>⌘ Cmd</kbd>) to select multiple</div>
-        <select id="section-filter" multiple>
-          <option value="__all__" selected>✓ All Sections</option>
-        </select>
-      </div>
+    <button id="download" class="primary">
+      <span class="btn-icon">⬇️</span>
+      <span>Scan & Download PDFs</span>
+    </button>
 
-      <button id="download" class="primary">
-        <span class="btn-icon">⬇️</span>
-        <span>Scan & Download PDFs</span>
-      </button>
+    <section class="status-section" aria-live="polite">
+      <p id="status">Select sections and click to download</p>
+    </section>
 
-      <section class="status-section" aria-live="polite">
-        <p id="status">Select sections and click to download</p>
-      </section>
+    <footer>
+      <p class="hint">💡 Open a Moodle course page first</p>
+    </footer>
+  </main>
+  <script src="utils.js"></script>
+  <script src="popup.js"></script>
+</body>
 
-      <footer>
-        <p class="hint">💡 Open a Moodle course page first</p>
-      </footer>
-    </main>
-    <script src="utils.js"></script>
-    <script src="popup.js"></script>
-  </body>
 </html>

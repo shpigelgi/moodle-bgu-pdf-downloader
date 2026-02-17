@@ -18,3 +18,12 @@ STORE_LISTING.md
 # Temporary files
 *.log
 *.tmp
+
+# Node.js
+node_modules/
+package-lock*.json
+npm-debug.log*
+
+# Test coverage
+coverage/
+.nyc_output/
