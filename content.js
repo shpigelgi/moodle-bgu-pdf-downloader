@@ -4,9 +4,9 @@ const getCourseTitle = () =>
 const getSectionTitle = (element) => {
   // The structure is: li.section.course-section > header + div.content > ul.section > li.activity > a
   // We need to go up from the anchor to the outermost li.section
-  
+
   const section = element.closest("li.section.course-section");
-  
+
   if (section) {
     const titleEl = section.querySelector("h3.sectionname");
     if (titleEl) {
@@ -28,7 +28,7 @@ const getResourceTitle = (anchor) => {
       .replace(/קובץ\s*/g, '')  // Remove "קובץ" (file in Hebrew)
       .replace(/\s*File$/i, '')  // Remove trailing "File"
       .trim();
-    
+
     if (text.length > 0) {
       return text;
     }
@@ -43,11 +43,23 @@ const looksLikePdf = (url, fileTypes) => {
   }
 
   const lowerUrl = url.toLowerCase();
+
+  // Get all valid extensions for the requested file types
+  const validExtensions = [];
+  if (typeof FILE_TYPES !== 'undefined') {
+    fileTypes.forEach(type => {
+      if (FILE_TYPES[type] && FILE_TYPES[type].extensions) {
+        validExtensions.push(...FILE_TYPES[type].extensions);
+      }
+    });
+  } else {
+    // Fallback
+    validExtensions.push(...fileTypes);
+  }
+
   // Use regex to match exact file extensions (word boundary at end)
-  return fileTypes.some((type) => {
-    const regex = new RegExp(`\.${type}(\\?|$)`, 'i');
-    return regex.test(lowerUrl);
-  });
+  const regex = new RegExp(`\\.(${validExtensions.join('|')})(\\?|$)`, 'i');
+  return regex.test(lowerUrl);
 };
 
 const looksLikeMoodleResource = (url) => {
@@ -64,7 +76,7 @@ const collectLinks = async (fileTypes) => {
   const anchors = Array.from(mainContent.querySelectorAll("a[href]"));
   const links = [];
   const seen = new Set();
-  
+
   // Helper to collect files from folder page
   const collectFromFolder = async (folderUrl, folderName, section) => {
     try {
@@ -73,26 +85,39 @@ const collectLinks = async (fileTypes) => {
       const html = await response.text();
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
-      
+
       const folderLinks = [];
       const fileLinks = doc.querySelectorAll('a[href*="/pluginfile.php/"]');
-      
+
       fileLinks.forEach(fileLink => {
         const fileUrl = fileLink.href;
         const fileName = fileLink.textContent.trim();
-        
+
         // Check if file matches requested file types using exact extension matching
         const lowerUrl = fileUrl.toLowerCase();
-        const matchesType = fileTypes.some(type => {
-          const regex = new RegExp(`\.${type}(\\?|$)`, 'i');
-          return regex.test(lowerUrl);
-        });
-        
+
+        let matchesType = false;
+        if (typeof FILE_TYPES !== 'undefined') {
+          // Check against all extensions for requested types
+          matchesType = fileTypes.some(type => {
+            const config = FILE_TYPES[type];
+            if (!config) return false;
+
+            const regex = new RegExp(`\\.(${config.extensions.join('|')})(\\?|$)`, 'i');
+            return regex.test(lowerUrl);
+          });
+        } else {
+          matchesType = fileTypes.some(type => {
+            const regex = new RegExp(`\.${type}(\\?|$)`, 'i');
+            return regex.test(lowerUrl);
+          });
+        }
+
         // Skip if doesn't match requested types or if already seen
         if (!matchesType || seen.has(fileUrl)) {
           return;
         }
-        
+
         seen.add(fileUrl);
         folderLinks.push({
           url: fileUrl,
@@ -100,7 +125,7 @@ const collectLinks = async (fileTypes) => {
           title: `${folderName} - ${fileName}`
         });
       });
-      
+
       console.log(`[Content] Found ${folderLinks.length} files in folder: ${folderName}`);
       return folderLinks;
     } catch (error) {
@@ -111,13 +136,13 @@ const collectLinks = async (fileTypes) => {
 
   // First pass: collect regular resource links and identify folders
   const foldersToScan = [];
-  
+
   for (const anchor of anchors) {
     // Skip course index sidebar links
     if (anchor.classList.contains("courseindex-link")) {
       continue;
     }
-    
+
     const href = anchor.getAttribute("href");
     if (!href) {
       continue;
@@ -130,19 +155,19 @@ const collectLinks = async (fileTypes) => {
       // Ignore invalid URLs
       continue;
     }
-    
+
     // Check if it's a folder
     if (absoluteUrl.includes("/mod/folder/view.php")) {
       const section = getSectionTitle(anchor);
       let folderName = getResourceTitle(anchor);
-      
+
       // Remove Hebrew "folder view" labels and other common suffixes
       folderName = folderName
         .replace(/תצוגת תיקיית קבצים/g, '')
         .replace(/קובץ/g, '')
         .replace(/File/g, '')
         .trim();
-      
+
       foldersToScan.push({ url: absoluteUrl, folderName, section });
       continue;
     }
@@ -157,16 +182,36 @@ const collectLinks = async (fileTypes) => {
       links.push({ url: absoluteUrl, section, title });
     }
   }
-  
-  // Second pass: scan all folders in parallel
+
+  // Second pass: scan folders with throttling
   if (foldersToScan.length > 0) {
     console.log(`[Content] Scanning ${foldersToScan.length} folders for files...`);
-    const folderResults = await Promise.all(
-      foldersToScan.map(f => collectFromFolder(f.url, f.folderName, f.section))
-    );
-    folderResults.forEach(folderLinks => {
-      links.push(...folderLinks);
-    });
+
+    // Throttled execution
+    const CONCURRENCY = 3;
+    const results = [];
+    let index = 0;
+
+    const scanNext = async () => {
+      while (index < foldersToScan.length) {
+        const i = index++;
+        const f = foldersToScan[i];
+        try {
+          const folderLinks = await collectFromFolder(f.url, f.folderName, f.section);
+          results.push(...folderLinks);
+        } catch (e) {
+          console.error(`[Content] Error scanning folder ${f.folderName}:`, e);
+        }
+      }
+    };
+
+    const workers = Array(Math.min(foldersToScan.length, CONCURRENCY))
+      .fill(null)
+      .map(() => scanNext());
+
+    await Promise.all(workers);
+
+    links.push(...results);
   }
 
   console.log(`[Content] Collected ${links.length} resource link${links.length === 1 ? '' : 's'}`);
@@ -181,20 +226,20 @@ const resolveResourceLink = async (url) => {
       console.warn(`[Content] Failed to fetch ${url}: ${response.status}`);
       return [];
     }
-    
+
     // The response.url will be the final URL after redirects
     const finalUrl = response.url;
-    
+
     if (finalUrl.includes("/pluginfile.php/")) {
       return [finalUrl];
     }
-    
+
     // Fallback: try regex on the HTML
     const htmlText = await response.text();
     const pluginfileRegex = /https?:\/\/[^"'\s]+\/pluginfile\.php\/[^"'\s]+/gi;
     const matches = htmlText.match(pluginfileRegex) || [];
     const results = [...new Set(matches)];
-    
+
     return results.length > 0 ? results : [];
   } catch (error) {
     console.error(`[Content] Error resolving ${url}:`, error.message);
@@ -215,7 +260,7 @@ const resolveCollectedLinks = async (collectedLinks, fileTypes) => {
         const regex = new RegExp(`\.${type}(\\?|$)`, 'i');
         return regex.test(lowerUrl);
       });
-      
+
       if (matchesType) {
         resolved.push(item);
       }
@@ -228,7 +273,7 @@ const resolveCollectedLinks = async (collectedLinks, fileTypes) => {
           const regex = new RegExp(`\.${type}(\\?|$)`, 'i');
           return regex.test(lowerUrl);
         });
-        
+
         if (matchesType) {
           resolved.push({
             url: pluginUrl,
@@ -246,7 +291,7 @@ const resolveCollectedLinks = async (collectedLinks, fileTypes) => {
 const collectSections = () => {
   const sections = new Set();
   const sectionElements = document.querySelectorAll("li.section.course-section");
-  
+
   sectionElements.forEach(section => {
     const sectionName = section.querySelector("h3.sectionname");
     if (sectionName) {
@@ -256,33 +301,34 @@ const collectSections = () => {
       }
     }
   });
-  
+
   const sectionList = Array.from(sections).sort();
   console.log(`[Content] Found ${sectionList.length} section${sectionList.length === 1 ? '' : 's'}`);
-  
+
   return sectionList;
 };
 
 const getAvailableFileTypesInSections = async (selectedSections) => {
   // Map Moodle icon types to file extensions
-  const MOODLE_ICON_MAP = {
+  // Use global map if available, otherwise fallback
+  const iconMap = (typeof MOODLE_ICON_MAP !== 'undefined') ? MOODLE_ICON_MAP : {
     'pdf': 'pdf',
     'powerpoint': 'pptx',
     'document': 'docx',
     'spreadsheet': 'xlsx',
-    'text': 'docx',  // Text files often become docx on download
-    'archive': null  // Skip archives (zip, etc.) - not in our supported types
+    'text': 'text',
+    'archive': null
   };
-  
+
   const availableTypes = new Set();
-  
+
   // If no sections specified, check all
   const checkAllSections = !selectedSections || selectedSections.length === 0;
-  
+
   const mainContent = document.querySelector("#page-content") || document.body;
-  
+
   console.log(`[Content] Scanning for file types. All sections: ${checkAllSections}, Selected:`, selectedSections);
-  
+
   // Helper function to scan folder contents
   const scanFolder = async (folderUrl) => {
     try {
@@ -291,21 +337,21 @@ const getAvailableFileTypesInSections = async (selectedSections) => {
       const html = await response.text();
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
-      
+
       const folderTypes = new Set();
       const fileIcons = doc.querySelectorAll('img[src*="/f/"]');
-      
+
       fileIcons.forEach(img => {
         const match = img.src.match(/\/f\/([^-/]+)/);
         if (match) {
           const moodleType = match[1];
-          const fileType = MOODLE_ICON_MAP[moodleType];
+          const fileType = iconMap[moodleType];
           if (fileType) {
             folderTypes.add(fileType);
           }
         }
       });
-      
+
       console.log(`[Content] Folder contains types:`, Array.from(folderTypes));
       return folderTypes;
     } catch (error) {
@@ -313,26 +359,26 @@ const getAvailableFileTypesInSections = async (selectedSections) => {
       return new Set();
     }
   };
-  
+
   // Collect folders and regular files to scan
   const foldersToScan = [];
-  
+
   // Find all activity items
   const activityItems = Array.from(mainContent.querySelectorAll(".activity-item"));
   console.log(`[Content] Found ${activityItems.length} activity items`);
-  
+
   for (const item of activityItems) {
     // Check if this item is in a selected section
     if (!checkAllSections) {
       const sectionElement = item.closest("li.section.course-section");
       if (!sectionElement) continue;
-      
+
       const sectionTitle = sectionElement.querySelector("h3.sectionname")?.textContent?.trim() || "";
       if (!selectedSections.includes(sectionTitle)) {
         continue;
       }
     }
-    
+
     // Check for folder links
     const folderLink = item.querySelector("a[href*='/mod/folder/view.php']");
     if (folderLink) {
@@ -340,15 +386,15 @@ const getAvailableFileTypesInSections = async (selectedSections) => {
       console.log(`[Content] Found folder to scan:`, item.getAttribute('data-activityname'));
       continue;
     }
-    
+
     // Check for regular file icon
     const iconImg = item.querySelector("img[src*='/f/']");
     if (iconImg) {
       const match = iconImg.src.match(/\/f\/([^-/]+)/);
       if (match) {
         const moodleType = match[1];
-        const fileType = MOODLE_ICON_MAP[moodleType];
-        
+        const fileType = iconMap[moodleType];
+
         if (fileType) {
           availableTypes.add(fileType);
           const itemName = item.getAttribute('data-activityname') || '';
@@ -357,7 +403,7 @@ const getAvailableFileTypesInSections = async (selectedSections) => {
       }
     }
   }
-  
+
   // Scan all folders in parallel
   if (foldersToScan.length > 0) {
     console.log(`[Content] Scanning ${foldersToScan.length} folders...`);
@@ -366,7 +412,7 @@ const getAvailableFileTypesInSections = async (selectedSections) => {
       types.forEach(type => availableTypes.add(type));
     });
   }
-  
+
   const result = Array.from(availableTypes).sort();
   console.log(`[Content] Final detected file types:`, result);
   return result;
@@ -376,7 +422,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "collect_sections") {
     const sections = collectSections();
     const courseTitle = document.querySelector("h1")?.textContent.trim() || "Moodle Course";
-    
+
     sendResponse({
       ok: true,
       sections,
@@ -387,10 +433,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message?.type === "get_available_types") {
     const sections = message.sections || [];
-    
+
     getAvailableFileTypesInSections(sections).then(availableTypes => {
       console.log(`[Content] Available types in sections:`, availableTypes);
-      
+
       sendResponse({
         ok: true,
         availableTypes
@@ -402,7 +448,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         availableTypes: []
       });
     });
-    
+
     return true; // Keep channel open for async response
   }
 
@@ -414,7 +460,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     collectLinks(fileTypes).then(collectedLinks => {
       // Extract unique sections
       const sections = [...new Set(collectedLinks.map(item => item.section))].sort();
-      
+
       return resolveCollectedLinks(collectedLinks, fileTypes).then((links) => {
         console.log(`[Content] Resolved ${links.length} link${links.length === 1 ? '' : 's'}`);
         sendResponse({

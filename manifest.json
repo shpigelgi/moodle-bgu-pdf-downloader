@@ -18,13 +18,17 @@
     }
   },
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["https://moodle.bgu.ac.il/moodle/course/view.php*"],
-      "js": ["content.js"]
+      "matches": [
+        "https://moodle.bgu.ac.il/moodle/course/view.php*"
+      ],
+      "js": [
+        "utils.js",
+        "content.js"
+      ]
     }
   ],
   "permissions": [

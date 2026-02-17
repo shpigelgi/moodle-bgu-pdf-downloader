@@ -1,16 +1,22 @@
+try {
+  importScripts('utils.js');
+} catch (e) {
+  console.error('[Background] Failed to import utils.js:', e);
+}
+
 const MAX_CONCURRENT_DOWNLOADS = 3;
 
 const sanitizeForFolder = (name) => {
   if (!name || typeof name !== 'string') {
     return "Unknown";
   }
-  
+
   const sanitized = name
     .replace(/[\\/:*?"<>|]+/g, "-")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 80);
-  
+
   return sanitized || "Unknown";
 };
 
@@ -18,7 +24,7 @@ const getBasenameFromUrl = (url) => {
   if (!url || typeof url !== 'string') {
     return `file-${Date.now()}`;
   }
-  
+
   try {
     const parsed = new URL(url);
     const pathname = parsed.pathname;
@@ -41,22 +47,33 @@ const getBasenameFromUrl = (url) => {
   return `file-${Date.now()}`;
 };
 
-
-
 const getFileExtension = (url, title) => {
+  // Use centralized FILE_TYPES if available
+  const allExtensions = [];
+  if (typeof FILE_TYPES !== 'undefined') {
+    Object.values(FILE_TYPES).forEach(type => {
+      if (type.extensions) allExtensions.push(...type.extensions);
+    });
+  } else {
+    // Fallback if utils not loaded
+    allExtensions.push('pdf', 'pptx', 'docx', 'xlsx');
+  }
+
+  const extRegex = new RegExp(`\\.(${allExtensions.join('|')})$`, 'i');
+
   // Try to get extension from URL first
   try {
     const pathname = new URL(url).pathname;
-    const match = pathname.match(/\.(pdf|pptx|docx|xlsx)$/i);
+    const match = pathname.match(extRegex);
     if (match) return match[1].toLowerCase();
   } catch (error) {
     // Ignore URL parsing errors
   }
-  
+
   // Try to get extension from title
-  const titleMatch = title.match(/\.(pdf|pptx|docx|xlsx)$/i);
+  const titleMatch = title.match(extRegex);
   if (titleMatch) return titleMatch[1].toLowerCase();
-  
+
   // Default to pdf if unknown
   return 'pdf';
 };
@@ -66,14 +83,14 @@ const queueDownloads = async (links, courseFolder) => {
     console.warn("[Background] No links to download");
     return Promise.resolve();
   }
-  
+
   const coursePath = sanitizeForFolder(courseFolder || "Moodle Course");
   const titleCounts = {};
 
   let inFlight = 0;
   let index = 0;
 
-      return new Promise((resolve) => {
+  return new Promise((resolve) => {
     const startNext = () => {
       while (inFlight < MAX_CONCURRENT_DOWNLOADS && index < links.length) {
         const item = links[index++];
@@ -89,17 +106,28 @@ const queueDownloads = async (links, courseFolder) => {
         }
 
         const sectionPath = sanitizeForFolder(section);
-        
+
         // Add proper file extension if missing
         const extension = getFileExtension(url, filename);
-        if (!filename.toLowerCase().match(/\.(pdf|pptx|docx|xlsx)$/)) {
+
+        let hasExtension = false;
+        if (typeof FILE_TYPES !== 'undefined') {
+          const allExts = [];
+          Object.values(FILE_TYPES).forEach(t => allExts.push(...t.extensions));
+          const regex = new RegExp(`\\.(${allExts.join('|')})$`, 'i');
+          hasExtension = regex.test(filename);
+        } else {
+          hasExtension = filename.toLowerCase().match(/\.(pdf|pptx|docx|xlsx)$/);
+        }
+
+        if (!hasExtension) {
           filename += `.${extension}`;
         }
-        
+
         const fullPath = `${coursePath}/${sectionPath}/${filename}`;
 
         console.log(`[Background] Downloading: ${fullPath}`);
-        
+
         chrome.downloads.download(
           {
             url: url,
@@ -113,7 +141,7 @@ const queueDownloads = async (links, courseFolder) => {
             } else {
               console.log(`[Background] Started download ${downloadId}`);
             }
-            
+
             inFlight -= 1;
             if (index >= links.length && inFlight === 0) {
               resolve();
@@ -137,7 +165,7 @@ const queueDownloads = async (links, courseFolder) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "download_links") {
     const { links = [], courseTitle = "Moodle Course" } = message;
-    
+
     if (!Array.isArray(links) || links.length === 0) {
       sendResponse({ ok: false, error: "No files to download" });
       return true;

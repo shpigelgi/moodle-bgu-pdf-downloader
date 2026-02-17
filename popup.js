@@ -4,13 +4,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const height = document.body.scrollHeight;
     document.body.style.minHeight = `${height}px`;
   };
-  
+
   // Call resize on load and when content changes
   window.addEventListener('load', resizePopup);
-  new MutationObserver(resizePopup).observe(document.body, { 
-    childList: true, 
+  new MutationObserver(resizePopup).observe(document.body, {
+    childList: true,
     subtree: true,
-    attributes: true 
+    attributes: true
   });
 
   const statusEl = document.getElementById("status");
@@ -33,13 +33,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!Array.isArray(sections) || sections.length === 0) {
       return;
     }
-    
+
     // Clear existing options except "All"
     sectionFilter.innerHTML = '<option value="__all__" selected>All Sections</option>';
-    
+
     sections.forEach(section => {
       if (!section || typeof section !== 'string') return;
-      
+
       const option = document.createElement("option");
       option.value = section;
       option.textContent = section;
@@ -71,27 +71,27 @@ document.addEventListener("DOMContentLoaded", () => {
   sectionFilter.addEventListener("change", async () => {
     const selected = Array.from(sectionFilter.selectedOptions);
     const allOption = sectionFilter.querySelector('option[value="__all__"]');
-    
+
     // If "All" is selected with others, deselect others
     if (selected.length > 1 && selected.some(opt => opt.value === "__all__")) {
       Array.from(sectionFilter.options).forEach(opt => {
         opt.selected = opt.value === "__all__";
       });
     }
-    
+
     // If no selection, select "All"
     if (selected.length === 0) {
       allOption.selected = true;
     }
-    
+
     // Update available file types based on selected sections
     try {
       const tab = await withActiveTab();
       const selectedSections = getSelectedSections();
       const sectionsToQuery = selectedSections || []; // Empty array means all sections
-      
+
       console.log("[Popup] Section changed. Querying types for:", sectionsToQuery.length > 0 ? sectionsToQuery : "ALL");
-      
+
       const availableTypes = await queryAvailableFileTypes(tab.id, sectionsToQuery);
       updateFileTypeCheckboxes(availableTypes);
     } catch (error) {
@@ -147,7 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!Array.isArray(links) || links.length === 0) {
       return Promise.reject(new Error("No files to download"));
     }
-    
+
     return new Promise((resolve, reject) => {
       chrome.runtime.sendMessage(
         {
@@ -195,7 +195,7 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         );
       });
-      
+
       return response?.availableTypes || [];
     } catch (error) {
       console.error("[Popup] Error querying file types:", error);
@@ -203,25 +203,56 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const generateFileTypeCheckboxes = () => {
+    const container = document.querySelector('.file-types');
+    if (!container || typeof FILE_TYPES === 'undefined') return;
+
+    container.innerHTML = ''; // Clear existing
+
+    Object.entries(FILE_TYPES).forEach(([type, config]) => {
+      const label = document.createElement('label');
+      label.className = 'checkbox-label';
+      label.style.opacity = '0.5'; // Default to disabled/dimmed until scanned
+
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.name = 'filetype';
+      input.value = type;
+      // Default unchecked to encourage scanning, or check PDF by default
+      if (type === 'pdf') input.checked = true;
+
+      const span = document.createElement('span');
+      span.className = 'checkbox-text';
+      // Add icon if available (simple emoji mapping or from config)
+      const emoji = type === 'pdf' ? '📄' : type === 'pptx' ? '📊' : type === 'docx' ? '📝' : type === 'xlsx' ? '📈' : '📁';
+      span.textContent = `${emoji} ${config.label}`;
+
+      label.appendChild(input);
+      label.appendChild(span);
+      container.appendChild(label);
+    });
+  };
+
+  // Call generation on init
+  generateFileTypeCheckboxes();
+
   const updateFileTypeCheckboxes = (availableTypes) => {
     console.log("[Popup] Updating checkboxes with available types:", availableTypes);
-    
+
     const checkboxes = document.querySelectorAll('input[name="filetype"]');
-    
+
     checkboxes.forEach(checkbox => {
       const fileType = checkbox.value;
       const isAvailable = availableTypes.includes(fileType);
-      
-      console.log(`[Popup] ${fileType}: available=${isAvailable}`);
-      
+
       // Enable/disable checkbox
       checkbox.disabled = !isAvailable;
-      
+
       // Uncheck if not available
       if (!isAvailable && checkbox.checked) {
         checkbox.checked = false;
       }
-      
+
       // Update visual feedback on the label
       const label = checkbox.closest('.checkbox-label');
       if (label) {
@@ -236,7 +267,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
     });
-    
+
     // Ensure at least one is checked if any are available
     if (availableTypes.length > 0) {
       const anyChecked = Array.from(checkboxes).some(cb => cb.checked && !cb.disabled);
@@ -245,7 +276,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const firstAvailable = Array.from(checkboxes).find(cb => !cb.disabled);
         if (firstAvailable) {
           firstAvailable.checked = true;
-          console.log("[Popup] Auto-checked first available:", firstAvailable.value);
         }
       }
     }
@@ -254,14 +284,14 @@ document.addEventListener("DOMContentLoaded", () => {
   downloadBtn.addEventListener("click", async () => {
     console.log("[Popup] Download button clicked");
     downloadBtn.disabled = true;
-    
+
     const fileTypes = getSelectedFileTypes();
     if (fileTypes.length === 0) {
       setStatus("Please select at least one file type.");
       downloadBtn.disabled = false;
       return;
     }
-    
+
     const fileTypeText = getFileTypeDisplayText(fileTypes);
     setStatus(`Scanning for ${fileTypeText}...`);
 
@@ -332,7 +362,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // Populate section filter
       if (scannedSections.length > 0) {
         populateSections(scannedSections);
-        
+
         // Query and update available file types for all sections
         try {
           const availableTypes = await queryAvailableFileTypes(tab.id, []);
@@ -341,7 +371,7 @@ document.addEventListener("DOMContentLoaded", () => {
           console.log("[Popup] Could not query initial file types:", error.message);
           // Continue without file type filtering
         }
-        
+
         setStatus("Select sections and click to download.");
         downloadBtn.disabled = false;
       } else {
