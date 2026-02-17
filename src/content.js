@@ -395,11 +395,12 @@ var getAvailableFileTypesInSections = async (selectedSections) => {
   for (const item of activityItems) {
     // Check if this item is in a selected section
     if (!checkAllSections) {
-      const sectionElement = item.closest("li.section.course-section");
+      const sectionElement = item.closest("li.section");
       if (!sectionElement) continue;
 
-      const sectionTitle = sectionElement.querySelector("h3.sectionname")?.textContent?.trim() || "";
+      const sectionTitle = sectionElement.querySelector("h3")?.textContent?.trim() || "";
       if (!selectedSections.includes(sectionTitle)) {
+        console.log(`[Content] Skipping item in section "${sectionTitle}" (not in selected sections)`);
         continue;
       }
     }
