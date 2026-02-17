@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1771334814610" clover="3.2.0">
-  <project timestamp="1771334814610" name="All files">
+<coverage generated="1771335887466" clover="3.2.0">
+  <project timestamp="1771335887466" name="All files">
     <metrics statements="358" coveredstatements="84" conditionals="200" coveredconditionals="49" methods="43" coveredmethods="8" elements="601" coveredelements="141" complexity="0" loc="358" ncloc="358" packages="1" files="3" classes="3"/>
     <file name="background.js" path="/Users/giladshpigelman/Documents/Personal/Projects/pdf-downloader/src/background.js">
       <metrics statements="97" coveredstatements="40" conditionals="62" coveredconditionals="24" methods="12" coveredmethods="4"/>

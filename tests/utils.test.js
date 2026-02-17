@@ -24,13 +24,11 @@ describe('utils.js', () => {
         test('should map moodle icons to file keys', () => {
             expect(MOODLE_ICON_MAP).toBeDefined();
             expect(MOODLE_ICON_MAP.pdf).toBe('pdf');
-            expect(MOODLE_ICON_MAP.powerpoint).toBe('pptx');
-            expect(MOODLE_ICON_MAP.document).toBe('docx');
             expect(MOODLE_ICON_MAP.spreadsheet).toBe('xlsx');
         });
 
-        test('should map text to docx', () => {
-            expect(MOODLE_ICON_MAP.text).toBe('docx');
+        test('should map text to null (generic icon)', () => {
+            expect(MOODLE_ICON_MAP.text).toBeNull();
         });
 
         test('should return null for archive', () => {

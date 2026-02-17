@@ -38,7 +38,7 @@ var MOODLE_ICON_MAP = {
     'powerpoint': 'pptx',
     'document': 'docx',
     'spreadsheet': 'xlsx',
-    'text': 'docx', // Mapping text icons to docx as per original logic, or we can keep it strict
+    'text': null, // Generic icon, not a downloadable file type
     'archive': null
 };
 
