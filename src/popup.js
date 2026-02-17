@@ -142,6 +142,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Update available file types based on selected sections
         try {
+          // Show loading state
+          const fileTypeContainer = document.querySelector('.file-types');
+          if (fileTypeContainer) {
+            fileTypeContainer.style.opacity = '0.5';
+            fileTypeContainer.style.pointerEvents = 'none';
+          }
+
           const tab = await withActiveTab();
           const selectedSections = getSelectedSections();
           const sectionsToQuery = selectedSections || [];
@@ -150,9 +157,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
           const availableTypes = await queryAvailableFileTypes(tab.id, sectionsToQuery);
           updateFileTypeCheckboxes(availableTypes);
+
+          // Restore normal state
+          if (fileTypeContainer) {
+            fileTypeContainer.style.opacity = '1';
+            fileTypeContainer.style.pointerEvents = 'auto';
+          }
         } catch (error) {
           console.warn('[Popup] Could not update file types:', error.message);
-          // Don't break functionality - just skip the update
+          // Restore normal state even on error
+          const fileTypeContainer = document.querySelector('.file-types');
+          if (fileTypeContainer) {
+            fileTypeContainer.style.opacity = '1';
+            fileTypeContainer.style.pointerEvents = 'auto';
+          }
         }
       });
     });
