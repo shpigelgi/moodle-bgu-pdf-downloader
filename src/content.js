@@ -196,7 +196,7 @@ var collectLinks = async (fileTypes, selectedSections = null) => {
     if ((isPdf || isMoodleRes) && !seen.has(absoluteUrl)) {
       seen.add(absoluteUrl);
       const section = anchor.closest("li.section")?.querySelector("h3")?.textContent.trim() || "Unknown";
-      const title = anchor.textContent.trim() || "Untitled";
+      const title = getResourceTitle(anchor) || "Untitled";
 
       // Skip if section is not in selected sections
       if (!shouldIncludeSection(section)) {
