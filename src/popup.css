@@ -146,6 +146,7 @@ body {
   flex-direction: column;
   gap: 0;
   padding: 16px 16px 12px;
+  overflow: visible;
 }
 
 .block {
@@ -321,8 +322,20 @@ body {
 }
 
 /* —— Section dropdown —— */
+/* Menu is position:absolute; later siblings (CTA, status) paint on top unless
+   the sections block is raised while open. */
+.block--sections.is-dropdown-open,
+.block--sections:has(.custom-dropdown.open) {
+  position: relative;
+  z-index: 50;
+}
+
 .custom-dropdown {
   position: relative;
+}
+
+.custom-dropdown.open {
+  z-index: 1;
 }
 
 .dropdown-toggle {
@@ -438,6 +451,12 @@ body {
 }
 
 /* —— CTA —— */
+.cta,
+.status-wrap {
+  position: relative;
+  z-index: 0;
+}
+
 .cta {
   width: 100%;
   border: none;

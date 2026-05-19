@@ -18,7 +18,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const sectionDropdown = document.getElementById("section-dropdown");
   const sectionToggle = document.getElementById("section-toggle");
   const sectionMenu = document.getElementById("section-menu");
+  const sectionBlock = sectionDropdown?.closest(".block--sections");
   const dropdownText = sectionToggle.querySelector('.dropdown-text');
+
+  const setSectionDropdownOpen = (isOpen) => {
+    sectionDropdown.classList.toggle("open", isOpen);
+    sectionToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    sectionBlock?.classList.toggle("is-dropdown-open", isOpen);
+  };
 
   console.log("[Popup] Initializing...", { statusEl, downloadBtn, sectionDropdown });
 
@@ -179,15 +186,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // Toggle dropdown open/close
   sectionToggle.addEventListener('click', (e) => {
     e.stopPropagation();
-    const isOpen = sectionDropdown.classList.toggle('open');
-    sectionToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    setSectionDropdownOpen(!sectionDropdown.classList.contains('open'));
   });
 
   // Close dropdown when clicking outside
   document.addEventListener('click', (e) => {
     if (!sectionDropdown.contains(e.target)) {
-      sectionDropdown.classList.remove('open');
-      sectionToggle.setAttribute('aria-expanded', 'false');
+      setSectionDropdownOpen(false);
     }
   });
 
