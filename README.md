@@ -64,11 +64,18 @@ Built with vanilla JavaScript - no external dependencies.
 ```
 pdf-downloader/
 ├── manifest.json       # Extension configuration
-├── background.js       # Download orchestration
-├── content.js         # Moodle page scanning
-├── popup.html/js/css  # User interface
-└── icon*.png          # Extension icons
+├── src/                # Extension source (background, content, popup, utils)
+├── tests/              # Jest unit tests (npm test)
+├── resources/          # Saved Moodle HTML fixtures (offline DOM reference)
+├── docs/RISK_CASES.md  # Edge cases, how to test, when to add fixtures
+└── assets/             # Extension icons
 ```
+
+### Testing
+
+- **Automated:** `npm test`
+- **Fixtures:** see [resources/README.md](resources/README.md)
+- **Edge cases & manual procedures:** see [docs/RISK_CASES.md](docs/RISK_CASES.md)
 
 ## Contributing
 
