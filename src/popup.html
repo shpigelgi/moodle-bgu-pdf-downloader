@@ -4,69 +4,82 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Moodle PDF Downloader</title>
+  <title>Moodle Materials Downloader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="popup.css" />
 </head>
 
 <body>
-  <main class="container">
-    <div class="header">
-      <h1>📚 Moodle PDF Downloader</h1>
-      <p class="subtitle">Download PDFs from your course</p>
-    </div>
-
-    <div class="filter-section">
-      <label>File Types</label>
-      <div class="file-types">
-        <label class="checkbox-label">
-          <input type="checkbox" name="filetype" value="pdf" checked>
-          <span class="checkbox-text">📄 PDF</span>
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" name="filetype" value="pptx">
-          <span class="checkbox-text">📊 PowerPoint</span>
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" name="filetype" value="docx">
-          <span class="checkbox-text">📝 Word</span>
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" name="filetype" value="xlsx">
-          <span class="checkbox-text">📈 Excel</span>
-        </label>
+  <main class="shell">
+    <header class="masthead">
+      <div class="masthead__badge" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6 4h9l3 3v13H6V4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+          <path d="M15 4v3h3M8 12h8M8 16h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        </svg>
       </div>
-    </div>
+      <div class="masthead__copy">
+        <h1>Course Grabber</h1>
+        <p class="masthead__tagline">Bulk download from BGU Moodle</p>
+      </div>
+    </header>
 
-    <div class="filter-section">
-      <label>Select Sections</label>
-      <div class="custom-dropdown" id="section-dropdown">
-        <button type="button" class="dropdown-toggle" id="section-toggle">
-          <span class="dropdown-text">All Sections</span>
-          <span class="dropdown-arrow">▼</span>
-        </button>
-        <div class="dropdown-menu" id="section-menu">
-          <div class="dropdown-item">
-            <label class="dropdown-checkbox-label">
-              <input type="checkbox" value="__all__" checked data-section-checkbox>
-              <span>All Sections</span>
-            </label>
-          </div>
-          <!-- Dynamic sections will be added here -->
+    <div class="panel">
+      <section class="block block--types" aria-labelledby="types-label">
+        <div class="block__head">
+          <h2 id="types-label">Formats</h2>
+          <span class="block__hint">auto-detected on page</span>
         </div>
-      </div>
+        <div class="file-types" role="group" aria-labelledby="types-label">
+          <!-- Populated by popup.js from FILE_TYPES -->
+        </div>
+      </section>
+
+      <section class="block block--sections" aria-labelledby="sections-label">
+        <div class="block__head">
+          <h2 id="sections-label">Sections</h2>
+        </div>
+        <div class="custom-dropdown" id="section-dropdown">
+          <button type="button" class="dropdown-toggle" id="section-toggle" aria-haspopup="listbox" aria-expanded="false">
+            <span class="dropdown-text">All Sections</span>
+            <span class="dropdown-arrow" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2.5 4.5L6 8l3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+            </span>
+          </button>
+          <div class="dropdown-menu" id="section-menu" role="listbox">
+            <div class="dropdown-item">
+              <label class="dropdown-checkbox-label">
+                <input type="checkbox" value="__all__" checked data-section-checkbox />
+                <span>All Sections</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <button type="button" id="download" class="cta">
+        <span class="cta__icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M12 4v11m0 0l4-4m-4 4l-4-4M5 20h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+        </span>
+        <span class="cta__label">Scan &amp; download</span>
+      </button>
+
+      <section class="status-wrap" aria-live="polite" aria-atomic="true">
+        <p id="status" class="status">Loading course…</p>
+      </section>
     </div>
 
-    <button id="download" class="primary">
-      <span class="btn-icon">⬇️</span>
-      <span>Scan & Download PDFs</span>
-    </button>
-
-    <section class="status-section" aria-live="polite">
-      <p id="status">Select sections and click to download</p>
-    </section>
-
-    <footer>
-      <p class="hint">💡 Open a Moodle course page first</p>
+    <footer class="foot">
+      <p class="foot__hint">Open a <strong>moodle.bgu.ac.il</strong> course page first</p>
     </footer>
   </main>
   <script src="utils.js"></script>

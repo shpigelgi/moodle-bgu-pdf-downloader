@@ -155,10 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
           // Show loading state
           const fileTypeContainer = document.querySelector('.file-types');
-          if (fileTypeContainer) {
-            fileTypeContainer.style.opacity = '0.5';
-            fileTypeContainer.style.pointerEvents = 'none';
-          }
+          fileTypeContainer?.classList.add('is-loading');
 
           const tab = await withActiveTab();
           const selectedSections = getSelectedSections();
@@ -170,18 +167,10 @@ document.addEventListener("DOMContentLoaded", () => {
           updateFileTypeCheckboxes(availableTypes);
 
           // Restore normal state
-          if (fileTypeContainer) {
-            fileTypeContainer.style.opacity = '1';
-            fileTypeContainer.style.pointerEvents = 'auto';
-          }
+          fileTypeContainer?.classList.remove('is-loading');
         } catch (error) {
           console.warn('[Popup] Could not update file types:', error.message);
-          // Restore normal state even on error
-          const fileTypeContainer = document.querySelector('.file-types');
-          if (fileTypeContainer) {
-            fileTypeContainer.style.opacity = '1';
-            fileTypeContainer.style.pointerEvents = 'auto';
-          }
+          document.querySelector('.file-types')?.classList.remove('is-loading');
         }
       });
     });
@@ -190,13 +179,15 @@ document.addEventListener("DOMContentLoaded", () => {
   // Toggle dropdown open/close
   sectionToggle.addEventListener('click', (e) => {
     e.stopPropagation();
-    sectionDropdown.classList.toggle('open');
+    const isOpen = sectionDropdown.classList.toggle('open');
+    sectionToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
   });
 
   // Close dropdown when clicking outside
   document.addEventListener('click', (e) => {
     if (!sectionDropdown.contains(e.target)) {
       sectionDropdown.classList.remove('open');
+      sectionToggle.setAttribute('aria-expanded', 'false');
     }
   });
 
@@ -312,24 +303,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
     Object.entries(FILE_TYPES).forEach(([type, config]) => {
       const label = document.createElement('label');
-      label.className = 'checkbox-label';
-      label.style.opacity = '0.5'; // Default to disabled/dimmed until scanned
+      label.className = 'type-chip is-disabled';
+      label.dataset.type = type;
 
       const input = document.createElement('input');
       input.type = 'checkbox';
       input.name = 'filetype';
       input.value = type;
-      // Default unchecked to encourage scanning, or check PDF by default
       if (type === 'pdf') input.checked = true;
 
-      const span = document.createElement('span');
-      span.className = 'checkbox-text';
-      // Add icon if available (simple emoji mapping or from config)
-      const emoji = type === 'pdf' ? '📄' : type === 'pptx' ? '📊' : type === 'docx' ? '📝' : type === 'xlsx' ? '📈' : '📁';
-      span.textContent = `${emoji} ${config.label}`;
+      const mark = document.createElement('span');
+      mark.className = 'type-chip__mark';
+      mark.setAttribute('aria-hidden', 'true');
+
+      const text = document.createElement('span');
+      text.className = 'type-chip__label';
+      text.textContent = config.label;
 
       label.appendChild(input);
-      label.appendChild(span);
+      label.appendChild(mark);
+      label.appendChild(text);
       container.appendChild(label);
     });
   };
@@ -355,17 +348,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       // Update visual feedback on the label
-      const label = checkbox.closest('.checkbox-label');
+      const label = checkbox.closest('.type-chip');
       if (label) {
-        if (isAvailable) {
-          label.style.opacity = '1';
-          label.style.cursor = 'pointer';
-          label.style.pointerEvents = 'auto';
-        } else {
-          label.style.opacity = '0.3';
-          label.style.cursor = 'not-allowed';
-          label.style.pointerEvents = 'none';
-        }
+        label.classList.toggle('is-disabled', !isAvailable);
       }
     });
 
