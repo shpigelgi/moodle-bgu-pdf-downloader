@@ -1,8 +1,8 @@
-# Source images (keep only generated icons)
-icon.svg
-image.png
-image-removebg-preview.png
-icon.png
+# Source images at repo root (generated toolbar icons live in assets/)
+/icon.svg
+/image.png
+/image-removebg-preview.png
+/icon.png
 
 # Chrome store assets (not needed in repo)
 CHROME_STORE_CHECKLIST.md
