@@ -37,8 +37,7 @@ var POPUP_STRINGS = {
     localeToggle: 'עברית',
     reportIssue: 'Report issue',
     reportPreparing: 'Collecting page details…',
-    reportCopied: 'GitHub opened with the report in Description. Submit when ready.',
-    reportClipboard: 'Full report also copied — paste into Description if the field is empty.',
+    reportCopied: 'Summary on GitHub. Press Ctrl+V in Description to paste the full report, then submit.',
     reportFailed: 'Could not copy. GitHub is open — paste with Ctrl+V / Cmd+V.',
     experimental: 'experimental'
   },
@@ -80,8 +79,7 @@ var POPUP_STRINGS = {
     localeToggle: 'English',
     reportIssue: 'דווח על תקלה',
     reportPreparing: 'אוסף פרטים מהעמוד…',
-    reportCopied: 'GitHub נפתח עם הדוח בשדה Description. שלח כשמוכן.',
-    reportClipboard: 'הדוח הועתק גם ללוח — הדבק ב-Description אם השדה ריק.',
+    reportCopied: 'סיכום ב-GitHub. לחץ Ctrl+V ב-Description להדבקת הדוח המלא, ואז שלח.',
     reportFailed: 'לא ניתן להעתיק. GitHub נפתח — הדבק ב-Ctrl+V / Cmd+V.',
     experimental: 'ניסיוני'
   }

@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   const MOODLE_COURSE_URL = 'moodle.bgu.ac.il/moodle/course/view.php';
   const GITHUB_REPO = 'shpigelgi/moodle-bgu-pdf-downloader';
-  const GITHUB_ISSUE_BODY_MAX = 7500;
+  const GITHUB_ISSUE_SUMMARY_MAX = 2000;
   const SECTION_SEARCH_MIN = 6;
   const TAB_MESSAGE_TIMEOUT_MS = 20000;
 
@@ -911,19 +911,10 @@ document.addEventListener('DOMContentLoaded', () => {
       .join('\n');
   };
 
-  const buildBugReportText = async () => {
+  const buildBugReportText = (pageContext) => {
     const manifest = chrome.runtime.getManifest();
     const sectionsFilter = getSelectedSections();
     const failures = Array.from(failureList?.querySelectorAll('li') || []).map((li) => li.textContent);
-
-    let pageContext = null;
-    if (activeTabId && isMoodleCourseTab({ url: activeTabUrl })) {
-      try {
-        pageContext = await sendTabMessage(activeTabId, { type: 'collect_bug_report' });
-      } catch (error) {
-        pageContext = { ok: false, error: error.message };
-      }
-    }
 
     const parts = [
       '## Course Grabber bug report',
@@ -989,21 +980,55 @@ document.addEventListener('DOMContentLoaded', () => {
     return parts.filter((p) => p != null).join('\n');
   };
 
-  const buildGitHubIssueUrl = (diagnostics, titleText) => {
-    let body = diagnostics;
-    if (body.length > GITHUB_ISSUE_BODY_MAX) {
-      body = body.replace(
-        /### Course page HTML[\s\S]*?```html[\s\S]*?```/,
-        '### Course page HTML\n(Full HTML is in your clipboard — paste it here if the maintainer needs it.)\n'
+  const buildGitHubIssueSummary = (pageContext) => {
+    const manifest = chrome.runtime.getManifest();
+    const sectionsFilter = getSelectedSections();
+
+    const lines = [
+      '## Course Grabber bug report',
+      '',
+      '**The full report (activity list + sanitized page HTML) is on your clipboard.**',
+      '**Paste it below this line with Ctrl+V / Cmd+V before submitting.**',
+      '',
+      '### Quick summary',
+      `- Extension: ${manifest.version}`,
+      `- Course: ${scannedCourseTitle || 'n/a'}`,
+      `- Course URL: ${activeTabUrl || 'n/a'}`,
+      `- Files after filters: ${scannedLinks.length} (cache: ${allScannedLinks.length})`,
+      `- Formats: ${getSelectedFileTypes().join(', ') || 'none'}`,
+      `- Sections: ${sectionsFilter?.length ? sectionsFilter.join(' | ') : 'all'}`,
+      `- Last status: ${statusEl?.textContent?.trim() || 'n/a'}`
+    ];
+
+    if (pageContext?.ok) {
+      lines.push(
+        `- Page activities: ${pageContext.domStats?.activityItems ?? '?'}`,
+        `- Moodle sections: ${pageContext.sectionNames?.length ?? 0}`,
+        `- HTML snapshot length: ${pageContext.pageHtmlMeta?.originalLength ?? 0} chars`
       );
     }
-    if (body.length > GITHUB_ISSUE_BODY_MAX) {
-      body = `${body.slice(0, GITHUB_ISSUE_BODY_MAX)}\n\n…(truncated for GitHub URL — paste full report from clipboard)…`;
-    }
 
+    lines.push(
+      '',
+      '### What went wrong',
+      '(describe what you expected vs what happened)',
+      '',
+      '---',
+      '### Full report (paste from clipboard)',
+      ''
+    );
+
+    let summary = lines.join('\n');
+    if (summary.length > GITHUB_ISSUE_SUMMARY_MAX) {
+      summary = `${summary.slice(0, GITHUB_ISSUE_SUMMARY_MAX)}\n\n…`;
+    }
+    return summary;
+  };
+
+  const buildGitHubIssueUrl = (summaryBody, titleText) => {
     const params = new URLSearchParams({
       title: titleText,
-      body,
+      body: summaryBody,
       labels: 'bug'
     });
     return `https://github.com/${GITHUB_REPO}/issues/new?${params.toString()}`;
@@ -1013,11 +1038,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (reportIssueBtn) reportIssueBtn.disabled = true;
     setStatus(t('reportPreparing'));
 
-    const diagnostics = await buildBugReportText();
+    let pageContext = null;
+    if (activeTabId && isMoodleCourseTab({ url: activeTabUrl })) {
+      try {
+        pageContext = await sendTabMessage(activeTabId, { type: 'collect_bug_report' });
+      } catch (error) {
+        pageContext = { ok: false, error: error.message };
+      }
+    }
+
+    const diagnostics = buildBugReportText(pageContext);
     const titleText = `[Bug] ${
       scannedCourseTitle && scannedCourseTitle !== 'Moodle Course' ? scannedCourseTitle : 'Moodle course'
     }`;
-    const issueUrl = buildGitHubIssueUrl(diagnostics, titleText);
+    const issueUrl = buildGitHubIssueUrl(buildGitHubIssueSummary(pageContext), titleText);
 
     let copied = false;
     try {
@@ -1028,7 +1062,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     chrome.tabs.create({ url: issueUrl });
-    const statusMsg = copied ? `${t('reportCopied')} ${t('reportClipboard')}` : t('reportFailed');
+    const statusMsg = copied ? t('reportCopied') : t('reportFailed');
     setStatus(statusMsg, copied ? 'success' : 'warn');
     if (reportIssueBtn) reportIssueBtn.disabled = false;
     scheduleResize();

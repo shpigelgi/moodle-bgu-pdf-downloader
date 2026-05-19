@@ -12,8 +12,9 @@ If Course Grabber missed files, showed the wrong count, or failed on a course, p
    - **Activity inventory** per section (names + Moodle icon types)
    - **Sanitized HTML** of the course content area (scripts/styles removed; truncated if very large)
 4. The full report is **copied to your clipboard** and GitHub opens in a new tab.
-5. GitHub should open with the report already in the **Description** box. If it is empty, press **Ctrl+V** / **Cmd+V** (the full report is on your clipboard).
-6. Add a short note at the top about what went wrong, then submit.
+5. GitHub opens with a **short summary** in **Description** (URLs cannot hold the full HTML report).
+6. Click in **Description**, press **Ctrl+V** / **Cmd+V** to paste the **full report** from your clipboard (below the summary).
+7. Describe what went wrong, then submit.
 
 Nothing is uploaded automatically. You choose what to send.
 
