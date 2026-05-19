@@ -16,6 +16,7 @@
 <body>
   <main class="shell" id="shell">
     <header class="masthead">
+      <button type="button" class="masthead__locale" id="locale-toggle" title="Switch language">עברית</button>
       <div class="masthead__badge" aria-hidden="true">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M6 4h9l3 3v13H6V4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
@@ -33,10 +34,18 @@
       <h2 id="empty-state-title">Open a Moodle course</h2>
       <p id="empty-state-body">Navigate to a course page on moodle.bgu.ac.il, then open this popup again.</p>
       <a class="empty-state__btn" id="open-moodle" href="https://moodle.bgu.ac.il" target="_blank" rel="noopener">Open Moodle</a>
+      <button type="button" class="empty-state__locale" id="locale-toggle-empty">עברית</button>
     </section>
 
     <div class="panel" id="panel">
       <p class="last-scan" id="last-scan" hidden></p>
+
+      <div class="progress-wrap progress-wrap--top" id="progress-wrap" hidden>
+        <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-bar__fill" id="progress-fill"></div>
+        </div>
+        <span class="progress-text" id="progress-text"></span>
+      </div>
 
       <section class="block block--types" aria-labelledby="types-label">
         <div class="block__head">
@@ -76,27 +85,15 @@
         <input type="text" id="filename-prefix" class="prefix-input" maxlength="20" placeholder="" />
       </label>
 
-      <div class="progress-wrap" id="progress-wrap" hidden>
-        <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100">
-          <div class="progress-bar__fill" id="progress-fill"></div>
-        </div>
-        <span class="progress-text" id="progress-text"></span>
-      </div>
-
-      <div class="cta-row">
-        <button type="button" id="scan" class="cta cta--secondary">
-          <span id="scan-label">Scan course</span>
-        </button>
-        <button type="button" id="download" class="cta" disabled>
-          <span class="cta__icon" aria-hidden="true">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M12 4v11m0 0l4-4m-4 4l-4-4M5 20h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round" />
-            </svg>
-          </span>
-          <span class="cta__label" id="download-label">Download</span>
-        </button>
-      </div>
+      <button type="button" id="download" class="cta cta--primary" disabled>
+        <span class="cta__icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M12 4v11m0 0l4-4m-4 4l-4-4M5 20h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+        </span>
+        <span class="cta__label" id="download-label">Download</span>
+      </button>
 
       <button type="button" id="cancel-download" class="text-btn text-btn--cancel" hidden>Cancel</button>
 
@@ -113,13 +110,16 @@
       <section class="status-wrap" aria-live="polite" aria-atomic="true">
         <p id="status" class="status">Loading course…</p>
         <ul class="failure-list" id="failure-list" hidden></ul>
+        <div class="status-actions">
+          <button type="button" id="scan" class="text-btn text-btn--rescan" hidden>Rescan</button>
+          <button type="button" id="open-downloads" class="text-btn text-btn--downloads" hidden>
+            Open Downloads folder
+          </button>
+        </div>
       </section>
-
-      <button type="button" id="open-downloads" class="text-btn text-btn--block" hidden>Open Downloads folder</button>
     </div>
 
-    <footer class="foot">
-      <button type="button" class="foot__locale" id="locale-toggle">עברית</button>
+    <footer class="foot" id="foot" hidden>
       <p class="foot__hint" id="foot-hint">Open a <strong>moodle.bgu.ac.il</strong> course page first</p>
     </footer>
   </main>

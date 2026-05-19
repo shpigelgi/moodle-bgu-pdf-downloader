@@ -1,3 +1,16 @@
+const CONTENT_SCRIPT_VERSION = '1.2.1';
+const FETCH_TIMEOUT_MS = 10000;
+
+var fetchWithTimeout = async (url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 var getCourseTitle = () =>
   document.querySelector("h1")?.textContent?.trim() || document.title || "Moodle Course";
 
@@ -80,7 +93,7 @@ var collectLinks = async (fileTypes, selectedSections = null) => {
   const collectFromFolder = async (folderUrl, folderName, section) => {
     try {
       console.log(`[Content] Fetching folder:`, folderUrl);
-      const response = await fetch(folderUrl, { credentials: 'include' });
+      const response = await fetchWithTimeout(folderUrl, { credentials: 'include' });
       if (!response.ok) {
         console.warn(`[Content] Folder fetch failed (${response.status}):`, folderUrl);
         return [];
@@ -216,7 +229,7 @@ var collectLinks = async (fileTypes, selectedSections = null) => {
 
 var resolveResourceLink = async (url) => {
   try {
-    const response = await fetch(url, { redirect: 'follow', credentials: 'include' });
+    const response = await fetchWithTimeout(url, { redirect: 'follow', credentials: 'include' });
     const finalUrl = response.url;
 
     if (!response.ok) {
@@ -360,7 +373,7 @@ var getAvailableFileTypesInSections = async (selectedSections) => {
   const scanFolder = async (folderUrl) => {
     try {
       console.log(`[Content] Fetching folder:`, folderUrl);
-      const response = await fetch(folderUrl, { credentials: 'include' });
+      const response = await fetchWithTimeout(folderUrl, { credentials: 'include' });
       if (!response.ok) {
         console.warn(`[Content] Folder fetch failed (${response.status}):`, folderUrl);
         return new Set();
@@ -452,7 +465,11 @@ var getAvailableFileTypesInSections = async (selectedSections) => {
 };
 
 const registerContentMessageListener = () => {
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (typeof window !== 'undefined' && window.pdfDownloaderMessageHandler) {
+    chrome.runtime.onMessage.removeListener(window.pdfDownloaderMessageHandler);
+  }
+
+  const handler = (message, sender, sendResponse) => {
   if (message?.type === "collect_sections") {
     const sections = collectSections();
     const courseTitle = document.querySelector("h1")?.textContent.trim() || "Moodle Course";
@@ -468,13 +485,15 @@ const registerContentMessageListener = () => {
   if (message?.type === "get_available_types") {
     const sections = message.sections || [];
 
-    getAvailableFileTypesInSections(sections).then(({ availableTypes, typeCounts }) => {
+    getAvailableFileTypesInSections(sections).then((result) => {
+      const availableTypes = Array.isArray(result) ? result : (result?.availableTypes || []);
+      const typeCounts = Array.isArray(result) ? {} : (result?.typeCounts || {});
       console.log(`[Content] Available types in sections:`, availableTypes);
 
       sendResponse({
         ok: true,
         availableTypes,
-        typeCounts: typeCounts || {}
+        typeCounts
       });
     }).catch(error => {
       console.error("[Content] Error getting file types:", error);
@@ -528,15 +547,20 @@ const registerContentMessageListener = () => {
 
     return true;
   }
-  });
+  };
+
+  if (typeof window !== 'undefined') {
+    window.pdfDownloaderMessageHandler = handler;
+  }
+  chrome.runtime.onMessage.addListener(handler);
 };
 
-if (typeof window !== 'undefined' && window.pdfDownloaderContentInjected) {
-  console.log("[Content] Script already injected, skipping listener registration.");
-} else {
-  if (typeof window !== 'undefined') {
-    window.pdfDownloaderContentInjected = true;
+if (typeof window !== 'undefined') {
+  if (window.pdfDownloaderContentVersion !== CONTENT_SCRIPT_VERSION) {
+    window.pdfDownloaderContentVersion = CONTENT_SCRIPT_VERSION;
+    registerContentMessageListener();
   }
+} else {
   registerContentMessageListener();
 }
 

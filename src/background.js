@@ -72,7 +72,8 @@ const queueDownloads = async (links, courseFolder, filenamePrefix = '') => {
 
   const sanitize = typeof sanitizeForFolder === 'function' ? sanitizeForFolder : (n) => n || 'Unknown';
   const coursePath = sanitize(courseFolder || 'Moodle Course');
-  const prefix = sanitize(filenamePrefix).replace(/\s+/g, '_');
+  const rawPrefix = typeof filenamePrefix === 'string' ? filenamePrefix.trim() : '';
+  const prefix = rawPrefix ? sanitize(rawPrefix).replace(/\s+/g, '_') : '';
   const titleCounts = {};
   const failures = [];
   let succeeded = 0;

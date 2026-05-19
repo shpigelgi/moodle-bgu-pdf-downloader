@@ -38,8 +38,11 @@ html,
 body {
   margin: 0;
   padding: 0;
-  height: auto;
-  overflow: hidden;
+  width: 360px;
+  max-height: 600px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background: var(--masthead);
   color: var(--ink);
   font-family: var(--font-ui);
@@ -52,6 +55,7 @@ body {
   width: 360px;
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
   background: var(--paper);
   box-shadow: var(--shadow-soft);
   animation: shell-in 0.45s var(--ease-out) both;
@@ -151,12 +155,38 @@ body {
   color: rgba(246, 241, 232, 0.88);
 }
 
+.masthead__locale {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(246, 241, 232, 0.9);
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.masthead__locale:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.shell--rtl .masthead__locale {
+  right: auto;
+  left: 12px;
+}
+
 /* —— Panel —— */
 .panel {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 16px 16px 12px;
+  padding: 16px 16px 8px;
   overflow: visible;
 }
 
@@ -518,8 +548,11 @@ body {
 
 /* —— Status —— */
 .status-wrap {
-  min-height: 36px;
-  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  padding-bottom: 4px;
   animation: block-in 0.5s var(--ease-out) 0.24s both;
 }
 
@@ -671,6 +704,15 @@ body {
   text-align: center;
 }
 
+.text-btn--downloads {
+  margin: 0;
+  padding: 4px 8px;
+}
+
+.text-btn--downloads:not([hidden]):hover {
+  text-decoration: underline;
+}
+
 .block--prefix {
   display: flex;
   flex-direction: column;
@@ -738,6 +780,46 @@ body {
 
 .progress-wrap {
   margin-bottom: 10px;
+}
+
+.progress-wrap--top {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.cta--primary {
+  width: 100%;
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
+.status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 16px;
+}
+
+.text-btn--rescan {
+  padding: 4px 8px;
+  color: var(--ink-muted);
+  font-weight: 500;
+}
+
+.text-btn--rescan:hover {
+  color: var(--teal);
+}
+
+.empty-state__locale {
+  display: block;
+  margin: 16px auto 0;
+  border: none;
+  background: none;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--teal);
+  cursor: pointer;
 }
 
 .progress-bar {
@@ -863,51 +945,7 @@ body {
 }
 
 .foot {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
+  flex-shrink: 0;
+  padding: 8px 16px 12px;
 }
 
-.foot__locale {
-  border: none;
-  background: none;
-  font-family: var(--font-ui);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--teal);
-  cursor: pointer;
-}
-
-.panel {
-  max-height: 520px;
-  overflow-y: auto;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --paper: #1c1916;
-    --paper-raised: #252220;
-    --ink: #f6f1e8;
-    --ink-soft: #c9c0b5;
-    --ink-muted: #8a8278;
-    --line: #3d3834;
-    --line-strong: #524c46;
-    --masthead: #0a0908;
-    --teal-soft: rgba(26, 95, 99, 0.25);
-    --shadow-soft: 0 12px 40px rgba(0, 0, 0, 0.4);
-  }
-
-  .status[data-tone="success"] {
-    color: #86efac;
-  }
-
-  .status[data-tone="warn"] {
-    color: #fdba74;
-  }
-
-  .status[data-tone="error"] {
-    color: #fca5a5;
-  }
-}
