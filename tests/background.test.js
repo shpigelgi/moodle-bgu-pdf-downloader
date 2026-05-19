@@ -10,14 +10,10 @@ global.chrome = {
     }
 };
 
+const { FILE_TYPES } = require('../src/utils');
+global.FILE_TYPES = FILE_TYPES;
+
 const { sanitizeForFolder, getBasenameFromUrl, getFileExtension } = require('../src/background');
-// Mock FILE_TYPES globally for testing
-global.FILE_TYPES = {
-    pdf: { extensions: ['pdf'] },
-    pptx: { extensions: ['pptx', 'ppt'] },
-    docx: { extensions: ['docx', 'doc'] },
-    xlsx: { extensions: ['xlsx', 'xls'] }
-};
 
 describe('background.js', () => {
     describe('sanitizeForFolder', () => {

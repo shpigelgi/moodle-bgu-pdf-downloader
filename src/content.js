@@ -1,11 +1,3 @@
-if (typeof window !== 'undefined') {
-  if (window.pdfDownloaderContentInjected) {
-    console.log("[Content] Script already injected, skipping initialization.");
-  } else {
-    window.pdfDownloaderContentInjected = true;
-  }
-}
-
 var getCourseTitle = () =>
   document.querySelector("h1")?.textContent?.trim() || document.title || "Moodle Course";
 
@@ -46,27 +38,16 @@ var getResourceTitle = (anchor) => {
 };
 
 var looksLikePdf = (url, fileTypes) => {
-  if (!url) {
+  if (typeof matchesFileTypes === 'function') {
+    return matchesFileTypes(url, fileTypes);
+  }
+
+  if (!url || !Array.isArray(fileTypes) || fileTypes.length === 0) {
     return false;
   }
 
   const lowerUrl = url.toLowerCase();
-
-  // Get all valid extensions for the requested file types
-  const validExtensions = [];
-  if (typeof FILE_TYPES !== 'undefined') {
-    fileTypes.forEach(type => {
-      if (FILE_TYPES[type] && FILE_TYPES[type].extensions) {
-        validExtensions.push(...FILE_TYPES[type].extensions);
-      }
-    });
-  } else {
-    // Fallback
-    validExtensions.push(...fileTypes);
-  }
-
-  // Use regex to match exact file extensions (word boundary at end)
-  const regex = new RegExp(`\\.(${validExtensions.join('|')})(\\?|$)`, 'i');
+  const regex = new RegExp(`\\.(${fileTypes.join('|')})(\\?|$|#)`, 'i');
   return regex.test(lowerUrl);
 };
 
@@ -99,7 +80,11 @@ var collectLinks = async (fileTypes, selectedSections = null) => {
   const collectFromFolder = async (folderUrl, folderName, section) => {
     try {
       console.log(`[Content] Fetching folder:`, folderUrl);
-      const response = await fetch(folderUrl);
+      const response = await fetch(folderUrl, { credentials: 'include' });
+      if (!response.ok) {
+        console.warn(`[Content] Folder fetch failed (${response.status}):`, folderUrl);
+        return [];
+      }
       const html = await response.text();
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
@@ -111,25 +96,7 @@ var collectLinks = async (fileTypes, selectedSections = null) => {
         const fileUrl = fileLink.href;
         const fileName = fileLink.textContent.trim();
 
-        // Check if file matches requested file types using exact extension matching
-        const lowerUrl = fileUrl.toLowerCase();
-
-        let matchesType = false;
-        if (typeof FILE_TYPES !== 'undefined') {
-          // Check against all extensions for requested types
-          matchesType = fileTypes.some(type => {
-            const config = FILE_TYPES[type];
-            if (!config) return false;
-
-            const regex = new RegExp(`\\.(${config.extensions.join('|')})(\\?|$)`, 'i');
-            return regex.test(lowerUrl);
-          });
-        } else {
-          matchesType = fileTypes.some(type => {
-            const regex = new RegExp(`\.${type}(\\?|$)`, 'i');
-            return regex.test(lowerUrl);
-          });
-        }
+        const matchesType = looksLikePdf(fileUrl, fileTypes);
 
         // Skip if doesn't match requested types or if already seen
         if (!matchesType || seen.has(fileUrl)) {
@@ -177,6 +144,10 @@ var collectLinks = async (fileTypes, selectedSections = null) => {
     // Check if it's a folder
     if (absoluteUrl.includes("/mod/folder/view.php")) {
       const section = getSectionTitle(anchor);
+      if (!shouldIncludeSection(section)) {
+        continue;
+      }
+
       let folderName = getResourceTitle(anchor);
 
       // Remove Hebrew "folder view" labels and other common suffixes
@@ -195,7 +166,7 @@ var collectLinks = async (fileTypes, selectedSections = null) => {
 
     if ((isPdf || isMoodleRes) && !seen.has(absoluteUrl)) {
       seen.add(absoluteUrl);
-      const section = anchor.closest("li.section")?.querySelector("h3")?.textContent.trim() || "Unknown";
+      const section = getSectionTitle(anchor);
       const title = getResourceTitle(anchor) || "Untitled";
 
       // Skip if section is not in selected sections
@@ -246,7 +217,7 @@ var collectLinks = async (fileTypes, selectedSections = null) => {
 var resolveResourceLink = async (url) => {
   try {
     // Fetch with redirect:follow to get final URL
-    const response = await fetch(url, { redirect: 'follow' });
+    const response = await fetch(url, { redirect: 'follow', credentials: 'include' });
     if (!response.ok) {
       console.warn(`[Content] Failed to fetch ${url}: ${response.status}`);
       return [];
@@ -279,27 +250,13 @@ var resolveCollectedLinks = async (collectedLinks, fileTypes) => {
     const { url, section, title } = item;
 
     if (url.includes("/pluginfile.php/")) {
-      // Check if this direct file URL matches requested types
-      const lowerUrl = url.toLowerCase();
-      const matchesType = fileTypes.some(type => {
-        const regex = new RegExp(`\.${type}(\\?|$)`, 'i');
-        return regex.test(lowerUrl);
-      });
-
-      if (matchesType) {
+      if (looksLikePdf(url, fileTypes)) {
         resolved.push(item);
       }
     } else if (url.includes("/mod/resource/view.php")) {
       const pluginUrls = await resolveResourceLink(url);
       for (const pluginUrl of pluginUrls) {
-        // Filter resolved URLs by requested file types
-        const lowerUrl = pluginUrl.toLowerCase();
-        const matchesType = fileTypes.some(type => {
-          const regex = new RegExp(`\.${type}(\\?|$)`, 'i');
-          return regex.test(lowerUrl);
-        });
-
-        if (matchesType) {
+        if (looksLikePdf(pluginUrl, fileTypes)) {
           resolved.push({
             url: pluginUrl,
             section,
@@ -358,7 +315,11 @@ var getAvailableFileTypesInSections = async (selectedSections) => {
   const scanFolder = async (folderUrl) => {
     try {
       console.log(`[Content] Fetching folder:`, folderUrl);
-      const response = await fetch(folderUrl);
+      const response = await fetch(folderUrl, { credentials: 'include' });
+      if (!response.ok) {
+        console.warn(`[Content] Folder fetch failed (${response.status}):`, folderUrl);
+        return new Set();
+      }
       const html = await response.text();
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
@@ -395,10 +356,7 @@ var getAvailableFileTypesInSections = async (selectedSections) => {
   for (const item of activityItems) {
     // Check if this item is in a selected section
     if (!checkAllSections) {
-      const sectionElement = item.closest("li.section");
-      if (!sectionElement) continue;
-
-      const sectionTitle = sectionElement.querySelector("h3")?.textContent?.trim() || "";
+      const sectionTitle = getSectionTitle(item);
       if (!selectedSections.includes(sectionTitle)) {
         console.log(`[Content] Skipping item in section "${sectionTitle}" (not in selected sections)`);
         continue;
@@ -444,7 +402,8 @@ var getAvailableFileTypesInSections = async (selectedSections) => {
   return result;
 };
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+const registerContentMessageListener = () => {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "collect_sections") {
     const sections = collectSections();
     const courseTitle = document.querySelector("h1")?.textContent.trim() || "Moodle Course";
@@ -508,7 +467,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     return true;
   }
-});
+  });
+};
+
+if (typeof window !== 'undefined' && window.pdfDownloaderContentInjected) {
+  console.log("[Content] Script already injected, skipping listener registration.");
+} else {
+  if (typeof window !== 'undefined') {
+    window.pdfDownloaderContentInjected = true;
+  }
+  registerContentMessageListener();
+}
 
 // Export for testing
 if (typeof module !== 'undefined' && module.exports) {

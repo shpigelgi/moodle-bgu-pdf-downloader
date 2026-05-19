@@ -42,20 +42,50 @@ var MOODLE_ICON_MAP = {
     'archive': null
 };
 
+/** True when url ends with an extension allowed by the selected FILE_TYPES keys (e.g. doc for docx). */
+var matchesFileTypes = (url, fileTypes) => {
+    if (!url || !Array.isArray(fileTypes) || fileTypes.length === 0) {
+        return false;
+    }
+
+    const lowerUrl = url.toLowerCase();
+    const validExtensions = [];
+
+    fileTypes.forEach((type) => {
+        const config = FILE_TYPES[type];
+        if (config && config.extensions) {
+            validExtensions.push(...config.extensions);
+        }
+    });
+
+    if (validExtensions.length === 0) {
+        return false;
+    }
+
+    const escaped = validExtensions.map((ext) =>
+        ext.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    );
+    const regex = new RegExp(`\\.(${escaped.join('|')})(\\?|$|#)`, 'i');
+    return regex.test(lowerUrl);
+};
+
 // Expose globally if in a module environment or window
 if (typeof self !== 'undefined') {
     self.FILE_TYPES = FILE_TYPES;
     self.MOODLE_ICON_MAP = MOODLE_ICON_MAP;
+    self.matchesFileTypes = matchesFileTypes;
 }
 
 if (typeof window !== 'undefined') {
     window.FILE_TYPES = FILE_TYPES;
     window.MOODLE_ICON_MAP = MOODLE_ICON_MAP;
+    window.matchesFileTypes = matchesFileTypes;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         FILE_TYPES,
-        MOODLE_ICON_MAP
+        MOODLE_ICON_MAP,
+        matchesFileTypes
     };
 }

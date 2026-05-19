@@ -8,6 +8,10 @@ global.chrome = {
     }
 };
 
+const { FILE_TYPES, matchesFileTypes } = require('../src/utils');
+global.FILE_TYPES = FILE_TYPES;
+global.matchesFileTypes = matchesFileTypes;
+
 const { looksLikePdf, getSectionTitle, getResourceTitle } = require('../src/content');
 
 // Mock DOM
@@ -16,14 +20,6 @@ const dom = new JSDOM(`<!DOCTYPE html><body></body>`);
 global.document = dom.window.document;
 global.window = dom.window;
 global.HTMLElement = dom.window.HTMLElement;
-
-// Mock FILE_TYPES globally
-global.FILE_TYPES = {
-    pdf: { extensions: ['pdf'] },
-    pptx: { extensions: ['pptx'] },
-    docx: { extensions: ['docx', 'doc'] },
-    xlsx: { extensions: ['xlsx', 'xls'] }
-};
 
 describe('content.js', () => {
     describe('looksLikePdf (Renamed to check any file type)', () => {

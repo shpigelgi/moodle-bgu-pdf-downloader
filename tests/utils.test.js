@@ -1,4 +1,4 @@
-const { FILE_TYPES, MOODLE_ICON_MAP } = require('../src/utils');
+const { FILE_TYPES, MOODLE_ICON_MAP, matchesFileTypes } = require('../src/utils');
 
 describe('utils.js', () => {
     describe('FILE_TYPES', () => {
@@ -17,6 +17,31 @@ describe('utils.js', () => {
         test('should have correct extensions for PowerPoint', () => {
             expect(FILE_TYPES.pptx.extensions).toContain('pptx');
             expect(FILE_TYPES.pptx.extensions).toContain('ppt');
+        });
+    });
+
+    describe('matchesFileTypes', () => {
+        test('matches alias extensions (doc for docx type)', () => {
+            expect(matchesFileTypes('http://x/file.doc', ['docx'])).toBe(true);
+            expect(matchesFileTypes('http://x/file.docx', ['docx'])).toBe(true);
+        });
+
+        test('matches ppt when pptx type selected', () => {
+            expect(matchesFileTypes('http://x/slides.ppt', ['pptx'])).toBe(true);
+        });
+
+        test('rejects unrelated extensions', () => {
+            expect(matchesFileTypes('http://x/file.txt', ['pdf'])).toBe(false);
+        });
+
+        test('handles query strings and fragments', () => {
+            expect(matchesFileTypes('http://x/a.pdf?forcedownload=1', ['pdf'])).toBe(true);
+            expect(matchesFileTypes('http://x/a.pdf#section', ['pdf'])).toBe(true);
+        });
+
+        test('returns false for empty input', () => {
+            expect(matchesFileTypes(null, ['pdf'])).toBe(false);
+            expect(matchesFileTypes('http://x/a.pdf', [])).toBe(false);
         });
     });
 

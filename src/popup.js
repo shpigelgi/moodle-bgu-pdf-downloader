@@ -58,12 +58,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const item = document.createElement('div');
       item.className = 'dropdown-item';
-      item.innerHTML = `
-        <label class="dropdown-checkbox-label">
-          <input type="checkbox" value="${section}" data-section-checkbox>
-          <span>${section}</span>
-        </label>
-      `;
+
+      const label = document.createElement('label');
+      label.className = 'dropdown-checkbox-label';
+
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.value = section;
+      input.setAttribute('data-section-checkbox', '');
+
+      const span = document.createElement('span');
+      span.textContent = section;
+
+      label.appendChild(input);
+      label.appendChild(span);
+      item.appendChild(label);
       sectionMenu.appendChild(item);
     });
 
@@ -103,9 +112,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (selected.includes('__all__') || selected.length === 0) {
       dropdownText.textContent = 'All Sections';
     } else if (selected.length === 1) {
-      const checkbox = sectionMenu.querySelector(`input[value="${selected[0]}"]`);
-      const label = checkbox.closest('label').querySelector('span').textContent;
-      dropdownText.textContent = label;
+      const checkbox = Array.from(
+        sectionMenu.querySelectorAll('input[data-section-checkbox]')
+      ).find((cb) => cb.value === selected[0]);
+      const label = checkbox?.closest('label')?.querySelector('span')?.textContent;
+      dropdownText.textContent = label || selected[0];
     } else {
       dropdownText.textContent = `${selected.length} sections selected`;
     }
@@ -401,6 +412,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       scannedLinks = response?.links || [];
+      scannedCourseTitle = response?.courseTitle || scannedCourseTitle || "Moodle Course";
 
       if (!scannedLinks.length) {
         setStatus(`No ${fileTypeText} found in selected sections.`);

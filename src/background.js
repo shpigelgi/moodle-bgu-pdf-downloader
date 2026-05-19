@@ -1,7 +1,9 @@
-try {
-  importScripts('utils.js');
-} catch (e) {
-  console.error('[Background] Failed to import utils.js:', e);
+if (typeof importScripts === 'function') {
+  try {
+    importScripts('utils.js');
+  } catch (e) {
+    console.error('[Background] Failed to import utils.js:', e);
+  }
 }
 
 const MAX_CONCURRENT_DOWNLOADS = 3;
