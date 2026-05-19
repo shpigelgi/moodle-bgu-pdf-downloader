@@ -1,12 +1,9 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // Auto-resize popup to fit content
   const resizePopup = () => {
-    const height = document.body.scrollHeight;
-    document.body.style.minHeight = `${height}px`;
+    document.body.style.minHeight = `${document.body.scrollHeight}px`;
   };
 
-  // Call resize on load and when content changes
-  window.addEventListener('load', resizePopup);
+  window.addEventListener("load", resizePopup);
   new MutationObserver(resizePopup).observe(document.body, {
     childList: true,
     subtree: true,
@@ -19,7 +16,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const sectionToggle = document.getElementById("section-toggle");
   const sectionMenu = document.getElementById("section-menu");
   const sectionBlock = sectionDropdown?.closest(".block--sections");
-  const dropdownText = sectionToggle.querySelector('.dropdown-text');
+  const dropdownText = sectionToggle.querySelector(".dropdown-text");
+  const courseTagline = document.getElementById("course-tagline");
+  const ctaLabel = downloadBtn?.querySelector(".cta__label");
+
+  const MOODLE_COURSE_URL = "moodle.bgu.ac.il/moodle/course/view.php";
 
   const setSectionDropdownOpen = (isOpen) => {
     sectionDropdown.classList.toggle("open", isOpen);
@@ -27,54 +28,76 @@ document.addEventListener("DOMContentLoaded", () => {
     sectionBlock?.classList.toggle("is-dropdown-open", isOpen);
   };
 
-  console.log("[Popup] Initializing...", { statusEl, downloadBtn, sectionDropdown });
-
-  // Store scanned data
   let scannedLinks = [];
   let scannedCourseTitle = "";
   let scannedSections = [];
 
-  const setStatus = (message) => {
-    console.log(`[Popup] Status: ${message}`);
-    if (statusEl) statusEl.textContent = message;
+  const setStatus = (message, tone = "default") => {
+    if (statusEl) {
+      statusEl.textContent = message;
+      statusEl.dataset.tone = tone;
+    }
+  };
+
+  const updateCourseHeader = (title) => {
+    if (!courseTagline) return;
+    const trimmed = (title || "").trim();
+    const isCourse = Boolean(trimmed && trimmed !== "Moodle Course");
+    courseTagline.textContent = isCourse ? trimmed : "Bulk download from BGU Moodle";
+    courseTagline.title = trimmed;
+    courseTagline.dataset.hasCourse = isCourse ? "true" : "false";
+  };
+
+  const isDownloadableFileType = (type) => {
+    if (typeof MOODLE_ICON_MAP === "undefined") return type !== "text";
+    return MOODLE_ICON_MAP[type] !== null && MOODLE_ICON_MAP[type] !== undefined;
+  };
+
+  const isMoodleCourseTab = (tab) => Boolean(tab?.url?.includes(MOODLE_COURSE_URL));
+
+  const appendAllSectionsItem = () => {
+    const item = document.createElement("div");
+    item.className = "dropdown-item";
+
+    const label = document.createElement("label");
+    label.className = "dropdown-checkbox-label";
+
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = "__all__";
+    input.checked = true;
+    input.setAttribute("data-section-checkbox", "");
+
+    const span = document.createElement("span");
+    span.textContent = "All Sections";
+
+    label.appendChild(input);
+    label.appendChild(span);
+    item.appendChild(label);
+    sectionMenu.appendChild(item);
   };
 
   const populateSections = (sections) => {
-    if (!Array.isArray(sections) || sections.length === 0) {
-      return;
-    }
+    if (!Array.isArray(sections) || sections.length === 0) return;
 
-    // Clear existing items except "All"
-    const allCheckbox = sectionMenu.querySelector('input[value="__all__"]');
-    sectionMenu.innerHTML = '';
+    sectionMenu.innerHTML = "";
+    appendAllSectionsItem();
 
-    // Re-add "All Sections" checkbox
-    const allItem = document.createElement('div');
-    allItem.className = 'dropdown-item';
-    allItem.innerHTML = `
-      <label class="dropdown-checkbox-label">
-        <input type="checkbox" value="__all__" checked data-section-checkbox>
-        <span>All Sections</span>
-      </label>
-    `;
-    sectionMenu.appendChild(allItem);
+    sections.forEach((section) => {
+      if (!section || typeof section !== "string") return;
 
-    // Add section checkboxes
-    sections.forEach(section => {
-      if (!section || typeof section !== 'string') return;
+      const item = document.createElement("div");
+      item.className = "dropdown-item";
 
-      const item = document.createElement('div');
-      item.className = 'dropdown-item';
+      const label = document.createElement("label");
+      label.className = "dropdown-checkbox-label";
 
-      const label = document.createElement('label');
-      label.className = 'dropdown-checkbox-label';
-
-      const input = document.createElement('input');
-      input.type = 'checkbox';
+      const input = document.createElement("input");
+      input.type = "checkbox";
       input.value = section;
-      input.setAttribute('data-section-checkbox', '');
+      input.setAttribute("data-section-checkbox", "");
 
-      const span = document.createElement('span');
+      const span = document.createElement("span");
       span.textContent = section;
 
       label.appendChild(input);
@@ -83,114 +106,111 @@ document.addEventListener("DOMContentLoaded", () => {
       sectionMenu.appendChild(item);
     });
 
-    // Attach event listeners to new checkboxes
-    attachSectionCheckboxListeners();
+    updateDropdownText();
   };
 
   const getSelectedSections = () => {
-    const checkboxes = sectionMenu.querySelectorAll('input[data-section-checkbox]:checked');
-    const selected = Array.from(checkboxes).map(cb => cb.value);
-    if (selected.includes("__all__")) {
-      return null; // null means all sections
-    }
+    const selected = Array.from(
+      sectionMenu.querySelectorAll("input[data-section-checkbox]:checked")
+    ).map((cb) => cb.value);
+
+    if (selected.includes("__all__")) return null;
     return selected;
   };
 
   const getSelectedFileTypes = () => {
-    const checkboxes = document.querySelectorAll('input[name="filetype"]:checked');
-    const types = Array.from(checkboxes).map(cb => cb.value);
-    return types.length > 0 ? types : ["pdf"]; // Default to PDF if none selected
+    const types = Array.from(
+      document.querySelectorAll('input[name="filetype"]:checked:not(:disabled)')
+    ).map((cb) => cb.value);
+    return types.length > 0 ? types : ["pdf"];
   };
 
   const getFileTypeDisplayText = (fileTypes) => {
-    if (fileTypes.length === 0) return 'files';
-    if (fileTypes.length === 1) return fileTypes[0].toUpperCase() + 's';
-    return 'files';
+    if (fileTypes.length === 0) return "files";
+    if (fileTypes.length === 1) {
+      const label =
+        FILE_TYPES?.[fileTypes[0]]?.label || fileTypes[0].toUpperCase();
+      return label + (label.endsWith("s") ? "" : " files");
+    }
+    return "files";
   };
 
-  // Track previous selection to detect what was clicked
-  let previousSelected = ['__all__'];
+  const updateCtaLabel = (fileTypes) => {
+    if (!ctaLabel) return;
+    if (fileTypes.length === 1) {
+      const label = FILE_TYPES?.[fileTypes[0]]?.label || fileTypes[0];
+      ctaLabel.textContent = `Download ${label}`;
+    } else {
+      ctaLabel.textContent = "Scan & download";
+    }
+  };
 
-  // Update dropdown text based on selections
   const updateDropdownText = () => {
-    const checkboxes = sectionMenu.querySelectorAll('input[data-section-checkbox]:checked');
-    const selected = Array.from(checkboxes).map(cb => cb.value);
+    const selected = Array.from(
+      sectionMenu.querySelectorAll("input[data-section-checkbox]:checked")
+    ).map((cb) => cb.value);
 
-    if (selected.includes('__all__') || selected.length === 0) {
-      dropdownText.textContent = 'All Sections';
+    if (selected.includes("__all__") || selected.length === 0) {
+      dropdownText.textContent = "All Sections";
     } else if (selected.length === 1) {
       const checkbox = Array.from(
-        sectionMenu.querySelectorAll('input[data-section-checkbox]')
+        sectionMenu.querySelectorAll("input[data-section-checkbox]")
       ).find((cb) => cb.value === selected[0]);
-      const label = checkbox?.closest('label')?.querySelector('span')?.textContent;
+      const label = checkbox?.closest("label")?.querySelector("span")?.textContent;
       dropdownText.textContent = label || selected[0];
     } else {
       dropdownText.textContent = `${selected.length} sections selected`;
     }
   };
 
-  // Handle checkbox changes
-  const attachSectionCheckboxListeners = () => {
-    const checkboxes = sectionMenu.querySelectorAll('input[data-section-checkbox]');
+  sectionMenu.addEventListener("change", async (event) => {
+    const checkbox = event.target;
+    if (!checkbox.matches("input[data-section-checkbox]")) return;
 
-    checkboxes.forEach(checkbox => {
-      checkbox.addEventListener('change', async () => {
-        const allCheckbox = sectionMenu.querySelector('input[value="__all__"]');
-        const otherCheckboxes = Array.from(checkboxes).filter(cb => cb.value !== '__all__');
+    const allCheckbox = sectionMenu.querySelector('input[value="__all__"]');
+    const otherCheckboxes = Array.from(
+      sectionMenu.querySelectorAll('input[data-section-checkbox]')
+    ).filter((cb) => cb.value !== "__all__");
 
-        if (checkbox.value === '__all__') {
-          // If "All" is checked, uncheck all others
-          if (checkbox.checked) {
-            otherCheckboxes.forEach(cb => cb.checked = false);
-          }
-        } else {
-          // If a specific section is checked, uncheck "All"
-          if (checkbox.checked && allCheckbox) {
-            allCheckbox.checked = false;
-          }
+    if (checkbox.value === "__all__") {
+      if (checkbox.checked) {
+        otherCheckboxes.forEach((cb) => {
+          cb.checked = false;
+        });
+      }
+    } else {
+      if (checkbox.checked && allCheckbox) {
+        allCheckbox.checked = false;
+      }
+      if (!otherCheckboxes.some((cb) => cb.checked) && allCheckbox) {
+        allCheckbox.checked = true;
+      }
+    }
 
-          // If all specific sections are unchecked, check "All"
-          const anyChecked = otherCheckboxes.some(cb => cb.checked);
-          if (!anyChecked && allCheckbox) {
-            allCheckbox.checked = true;
-          }
-        }
+    updateDropdownText();
 
-        updateDropdownText();
+    const fileTypeContainer = document.querySelector(".file-types");
+    fileTypeContainer?.classList.add("is-loading");
 
-        // Update available file types based on selected sections
-        try {
-          // Show loading state
-          const fileTypeContainer = document.querySelector('.file-types');
-          fileTypeContainer?.classList.add('is-loading');
-
-          const tab = await withActiveTab();
-          const selectedSections = getSelectedSections();
-          const sectionsToQuery = selectedSections || [];
-
-          console.log('[Popup] Section changed. Querying file types for:', sectionsToQuery.length > 0 ? sectionsToQuery : 'ALL');
-
-          const availableTypes = await queryAvailableFileTypes(tab.id, sectionsToQuery);
-          updateFileTypeCheckboxes(availableTypes);
-
-          // Restore normal state
-          fileTypeContainer?.classList.remove('is-loading');
-        } catch (error) {
-          console.warn('[Popup] Could not update file types:', error.message);
-          document.querySelector('.file-types')?.classList.remove('is-loading');
-        }
-      });
-    });
-  };
-
-  // Toggle dropdown open/close
-  sectionToggle.addEventListener('click', (e) => {
-    e.stopPropagation();
-    setSectionDropdownOpen(!sectionDropdown.classList.contains('open'));
+    try {
+      const tab = await withActiveTab();
+      const selectedSections = getSelectedSections();
+      const sectionsToQuery = selectedSections || [];
+      const availableTypes = await queryAvailableFileTypes(tab.id, sectionsToQuery);
+      updateFileTypeCheckboxes(availableTypes);
+    } catch (error) {
+      console.warn("[Popup] Could not update file types:", error.message);
+    } finally {
+      fileTypeContainer?.classList.remove("is-loading");
+    }
   });
 
-  // Close dropdown when clicking outside
-  document.addEventListener('click', (e) => {
+  sectionToggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setSectionDropdownOpen(!sectionDropdown.classList.contains("open"));
+  });
+
+  document.addEventListener("click", (e) => {
     if (!sectionDropdown.contains(e.target)) {
       setSectionDropdownOpen(false);
     }
@@ -199,39 +219,28 @@ document.addEventListener("DOMContentLoaded", () => {
   const injectContentScript = async (tabId) => {
     await chrome.scripting.executeScript({
       target: { tabId },
-      files: ["src/utils.js", "src/content.js"] // Also ensuring utils is injected if needed manually
+      files: ["src/utils.js", "src/content.js"]
     });
   };
 
   const collectSections = (tabId) =>
     new Promise((resolve, reject) => {
-      console.log(`[Popup] Sending collect_sections message to tab ${tabId}`);
-      chrome.tabs.sendMessage(
-        tabId,
-        { type: "collect_sections" },
-        (response) => {
-          console.log(`[Popup] Sections response:`, response);
-          if (chrome.runtime.lastError) {
-            const msg = chrome.runtime.lastError.message;
-            console.warn(`[Popup] Message error (will retry):`, msg);
-            reject(chrome.runtime.lastError);
-            return;
-          }
-          resolve(response);
+      chrome.tabs.sendMessage(tabId, { type: "collect_sections" }, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+          return;
         }
-      );
+        resolve(response);
+      });
     });
 
   const collectLinks = (tabId, fileTypes, sections = null) =>
     new Promise((resolve, reject) => {
-      console.log(`[Popup] Sending collect_links message to tab ${tabId}`, { fileTypes, sections });
       chrome.tabs.sendMessage(
         tabId,
         { type: "collect_links", fileTypes, sections },
         (response) => {
-          console.log(`[Popup] Response received:`, response);
           if (chrome.runtime.lastError) {
-            console.error(`[Popup] Message error:`, chrome.runtime.lastError);
             reject(chrome.runtime.lastError);
             return;
           }
@@ -247,22 +256,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     return new Promise((resolve, reject) => {
       chrome.runtime.sendMessage(
-        {
-          type: "download_links",
-          links,
-          courseTitle: courseTitle || "Moodle Course"
-        },
+        { type: "download_links", links, courseTitle: courseTitle || "Moodle Course" },
         (response) => {
           if (chrome.runtime.lastError) {
             reject(chrome.runtime.lastError);
             return;
           }
-
           if (!response?.ok) {
             reject(new Error(response?.error || "Download failed"));
             return;
           }
-
           resolve(response);
         }
       );
@@ -274,6 +277,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!tab?.id) {
       throw new Error("No active tab found");
     }
+    if (!isMoodleCourseTab(tab)) {
+      throw new Error("Open a BGU Moodle course page (course/view.php) first.");
+    }
     return tab;
   };
 
@@ -283,46 +289,44 @@ document.addEventListener("DOMContentLoaded", () => {
         chrome.tabs.sendMessage(
           tabId,
           { type: "get_available_types", sections },
-          (response) => {
-            if (chrome.runtime.lastError) {
-              reject(chrome.runtime.lastError);
-              return;
-            }
-            resolve(response);
+          (res) => {
+            if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+            else resolve(res);
           }
         );
       });
-
       return response?.availableTypes || [];
     } catch (error) {
       console.error("[Popup] Error querying file types:", error);
-      return []; // Return empty array on error, don't break functionality
+      return [];
     }
   };
 
   const generateFileTypeCheckboxes = () => {
-    const container = document.querySelector('.file-types');
-    if (!container || typeof FILE_TYPES === 'undefined') return;
+    const container = document.querySelector(".file-types");
+    if (!container || typeof FILE_TYPES === "undefined") return;
 
-    container.innerHTML = ''; // Clear existing
+    container.innerHTML = "";
 
     Object.entries(FILE_TYPES).forEach(([type, config]) => {
-      const label = document.createElement('label');
-      label.className = 'type-chip is-disabled';
+      if (!isDownloadableFileType(type)) return;
+
+      const label = document.createElement("label");
+      label.className = "type-chip is-disabled";
       label.dataset.type = type;
 
-      const input = document.createElement('input');
-      input.type = 'checkbox';
-      input.name = 'filetype';
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.name = "filetype";
       input.value = type;
-      if (type === 'pdf') input.checked = true;
+      if (type === "pdf") input.checked = true;
 
-      const mark = document.createElement('span');
-      mark.className = 'type-chip__mark';
-      mark.setAttribute('aria-hidden', 'true');
+      const mark = document.createElement("span");
+      mark.className = "type-chip__mark";
+      mark.setAttribute("aria-hidden", "true");
 
-      const text = document.createElement('span');
-      text.className = 'type-chip__label';
+      const text = document.createElement("span");
+      text.className = "type-chip__label";
       text.textContent = config.label;
 
       label.appendChild(input);
@@ -332,111 +336,98 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  // Call generation on init
   generateFileTypeCheckboxes();
 
   const updateFileTypeCheckboxes = (availableTypes) => {
-    console.log("[Popup] Updating checkboxes with available types:", availableTypes);
-
     const checkboxes = document.querySelectorAll('input[name="filetype"]');
 
-    checkboxes.forEach(checkbox => {
-      const fileType = checkbox.value;
-      const isAvailable = availableTypes.includes(fileType);
-
-      // Enable/disable checkbox
+    checkboxes.forEach((checkbox) => {
+      const isAvailable = availableTypes.includes(checkbox.value);
       checkbox.disabled = !isAvailable;
+      if (!isAvailable && checkbox.checked) checkbox.checked = false;
 
-      // Uncheck if not available
-      if (!isAvailable && checkbox.checked) {
-        checkbox.checked = false;
-      }
-
-      // Update visual feedback on the label
-      const label = checkbox.closest('.type-chip');
-      if (label) {
-        label.classList.toggle('is-disabled', !isAvailable);
-      }
+      checkbox.closest(".type-chip")?.classList.toggle("is-disabled", !isAvailable);
     });
 
-    // Ensure at least one is checked if any are available
     if (availableTypes.length > 0) {
-      const anyChecked = Array.from(checkboxes).some(cb => cb.checked && !cb.disabled);
+      const anyChecked = Array.from(checkboxes).some((cb) => cb.checked && !cb.disabled);
       if (!anyChecked) {
-        // Check the first available checkbox
-        const firstAvailable = Array.from(checkboxes).find(cb => !cb.disabled);
-        if (firstAvailable) {
-          firstAvailable.checked = true;
-        }
+        const first = Array.from(checkboxes).find((cb) => !cb.disabled);
+        if (first) first.checked = true;
       }
     }
+
+    updateCtaLabel(getSelectedFileTypes());
   };
 
+  document.querySelector(".file-types")?.addEventListener("change", () => {
+    updateCtaLabel(getSelectedFileTypes());
+  });
+
   downloadBtn.addEventListener("click", async () => {
-    console.log("[Popup] Download button clicked");
     downloadBtn.disabled = true;
+    setSectionDropdownOpen(false);
 
     const fileTypes = getSelectedFileTypes();
     if (fileTypes.length === 0) {
-      setStatus("Please select at least one file type.");
+      setStatus("Please select at least one file type.", "warn");
       downloadBtn.disabled = false;
       return;
     }
 
     const fileTypeText = getFileTypeDisplayText(fileTypes);
-    setStatus(`Scanning for ${fileTypeText}...`);
+    setStatus(`Scanning for ${fileTypeText}…`);
 
     try {
       const tab = await withActiveTab();
-
-      // Get selected sections BEFORE collecting links
       const selectedSections = getSelectedSections();
 
       let response;
       try {
         response = await collectLinks(tab.id, fileTypes, selectedSections);
       } catch (error) {
-        console.log("[Popup] Injecting content script after initial failure");
         await injectContentScript(tab.id);
         response = await collectLinks(tab.id, fileTypes, selectedSections);
       }
 
       scannedLinks = response?.links || [];
       scannedCourseTitle = response?.courseTitle || scannedCourseTitle || "Moodle Course";
+      updateCourseHeader(scannedCourseTitle);
 
       if (!scannedLinks.length) {
-        setStatus(`No ${fileTypeText} found in selected sections.`);
-        downloadBtn.disabled = false;
+        setStatus(`No ${fileTypeText} found in selected sections.`, "warn");
         return;
       }
 
-      // Filter links by selected sections (redundant now but keeping for safety)
       let filteredLinks = scannedLinks;
       if (selectedSections) {
-        filteredLinks = scannedLinks.filter(link => selectedSections.includes(link.section));
+        filteredLinks = scannedLinks.filter((link) =>
+          selectedSections.includes(link.section)
+        );
       }
 
       if (!filteredLinks.length) {
-        setStatus(`No ${fileTypeText} in selected sections.`);
-        downloadBtn.disabled = false;
+        setStatus(`No ${fileTypeText} in selected sections.`, "warn");
         return;
       }
 
-      setStatus(`Downloading ${filteredLinks.length} ${fileTypeText}...`);
+      setStatus(`Downloading ${filteredLinks.length} ${fileTypeText}…`);
       await startDownload(filteredLinks, scannedCourseTitle);
-      setStatus(`Successfully queued ${filteredLinks.length} download${filteredLinks.length === 1 ? '' : 's'}.`);
+      setStatus(
+        `Queued ${filteredLinks.length} download${filteredLinks.length === 1 ? "" : "s"}.`,
+        "success"
+      );
     } catch (error) {
       console.error("[Popup] Download error:", error);
-      setStatus(error.message || "Download failed. Please try again.");
+      setStatus(error.message || "Download failed. Please try again.", "error");
     } finally {
       downloadBtn.disabled = false;
     }
   });
 
-  // Auto-scan sections on popup open
   (async () => {
     try {
-      setStatus("Loading sections...");
+      setStatus("Loading course…");
       downloadBtn.disabled = true;
 
       const tab = await withActiveTab();
@@ -445,36 +436,34 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         response = await collectSections(tab.id);
       } catch (error) {
-        console.log("[Popup] Injecting content script after initial failure");
         await injectContentScript(tab.id);
         response = await collectSections(tab.id);
       }
 
       scannedCourseTitle = response?.courseTitle || "Moodle Course";
       scannedSections = response?.sections || [];
+      updateCourseHeader(scannedCourseTitle);
 
-      // Populate section filter
       if (scannedSections.length > 0) {
         populateSections(scannedSections);
 
-        // Query and update available file types for all sections
         try {
           const availableTypes = await queryAvailableFileTypes(tab.id, []);
           updateFileTypeCheckboxes(availableTypes);
         } catch (error) {
-          console.log("[Popup] Could not query initial file types:", error.message);
-          // Continue without file type filtering
+          console.warn("[Popup] Could not query initial file types:", error.message);
         }
 
         setStatus("Select sections and click to download.");
         downloadBtn.disabled = false;
       } else {
-        setStatus("No sections found. Make sure you're on a Moodle course page.");
+        setStatus("No sections found on this course page.", "warn");
         downloadBtn.disabled = true;
       }
     } catch (error) {
       console.error("[Popup] Scan error:", error);
-      setStatus("Failed to scan page. Please refresh and try again.");
+      updateCourseHeader("");
+      setStatus(error.message || "Failed to scan page. Refresh and try again.", "error");
       downloadBtn.disabled = true;
     }
   })();
