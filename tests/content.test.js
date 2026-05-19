@@ -12,7 +12,10 @@ const { FILE_TYPES, matchesFileTypes } = require('../src/utils');
 global.FILE_TYPES = FILE_TYPES;
 global.matchesFileTypes = matchesFileTypes;
 
-const { looksLikePdf, getSectionTitle, getResourceTitle } = require('../src/content');
+const fs = require('fs');
+const path = require('path');
+
+const { looksLikePdf, collectSections, getSectionTitle, getResourceTitle } = require('../src/content');
 
 // Mock DOM
 const { JSDOM } = require('jsdom');
@@ -63,6 +66,28 @@ describe('content.js', () => {
             anchor.href = 'http://example.com/resource/Lecture1.pdf';
             anchor.textContent = '';
             expect(getResourceTitle(anchor)).toBe('Lecture1.pdf');
+        });
+    });
+
+    describe('collectSections', () => {
+        test('preserves course page DOM order (not alphabetical)', () => {
+            const fixturePath = path.join(
+                __dirname,
+                '../resources/קורס_ אבטחת מחשבים ורשתות תקשורת סמ 2 _ דף הבית.html'
+            );
+            const html = fs.readFileSync(fixturePath, 'utf8');
+            const { JSDOM } = require('jsdom');
+            const dom = new JSDOM(html);
+            global.document = dom.window.document;
+
+            const sections = collectSections();
+            expect(sections.length).toBeGreaterThan(2);
+            expect(sections[0]).toBe('מבוא');
+            expect(sections[1]).toBe('מצגות הרצאות');
+            expect(sections[2]).toBe('תרגולים');
+
+            const sorted = [...sections].sort((a, b) => a.localeCompare(b, 'he'));
+            expect(sections).not.toEqual(sorted);
         });
     });
 

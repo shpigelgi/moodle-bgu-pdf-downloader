@@ -271,20 +271,21 @@ var resolveCollectedLinks = async (collectedLinks, fileTypes) => {
 };
 
 var collectSections = () => {
-  const sections = new Set();
+  const sectionList = [];
+  const seen = new Set();
   const sectionElements = document.querySelectorAll("li.section.course-section");
 
-  sectionElements.forEach(section => {
+  sectionElements.forEach((section) => {
     const sectionName = section.querySelector("h3.sectionname");
-    if (sectionName) {
-      const title = sectionName.textContent.trim();
-      if (title) {
-        sections.add(title);
-      }
-    }
+    if (!sectionName) return;
+
+    const title = sectionName.textContent.trim();
+    if (!title || seen.has(title)) return;
+
+    seen.add(title);
+    sectionList.push(title);
   });
 
-  const sectionList = Array.from(sections).sort();
   console.log(`[Content] Found ${sectionList.length} section${sectionList.length === 1 ? '' : 's'}`);
 
   return sectionList;
@@ -483,6 +484,7 @@ if (typeof window !== 'undefined' && window.pdfDownloaderContentInjected) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     looksLikePdf,
+    collectSections,
     getAvailableFileTypesInSections,
     getSectionTitle,
     getResourceTitle
