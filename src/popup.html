@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Moodle Materials Downloader</title>
+  <title>Course Grabber</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -14,7 +14,7 @@
 </head>
 
 <body>
-  <main class="shell">
+  <main class="shell" id="shell">
     <header class="masthead">
       <div class="masthead__badge" aria-hidden="true">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -25,23 +25,35 @@
       <div class="masthead__copy">
         <h1>Course Grabber</h1>
         <p class="masthead__tagline" id="course-tagline" dir="auto">Bulk download from BGU Moodle</p>
+        <button type="button" class="masthead__link" id="open-course" hidden>Focus course tab</button>
       </div>
     </header>
 
-    <div class="panel">
+    <section class="empty-state" id="empty-state" hidden>
+      <h2 id="empty-state-title">Open a Moodle course</h2>
+      <p id="empty-state-body">Navigate to a course page on moodle.bgu.ac.il, then open this popup again.</p>
+      <a class="empty-state__btn" id="open-moodle" href="https://moodle.bgu.ac.il" target="_blank" rel="noopener">Open Moodle</a>
+    </section>
+
+    <div class="panel" id="panel">
+      <p class="last-scan" id="last-scan" hidden></p>
+
       <section class="block block--types" aria-labelledby="types-label">
         <div class="block__head">
           <h2 id="types-label">Formats</h2>
-          <span class="block__hint">auto-detected on page</span>
+          <span class="block__hint" id="formats-hint">auto-detected on page</span>
         </div>
-        <div class="file-types" role="group" aria-labelledby="types-label">
-          <!-- Populated by popup.js from FILE_TYPES -->
-        </div>
+        <div class="file-types" role="group" aria-labelledby="types-label"></div>
       </section>
 
       <section class="block block--sections" aria-labelledby="sections-label">
-        <div class="block__head">
+        <div class="block__head block__head--sections">
           <h2 id="sections-label">Sections</h2>
+          <div class="section-actions">
+            <button type="button" class="text-btn" id="section-select-all">All</button>
+            <button type="button" class="text-btn" id="section-clear">Clear</button>
+            <button type="button" class="text-btn text-btn--exp" id="section-current" title="experimental">Visible</button>
+          </div>
         </div>
         <div class="custom-dropdown" id="section-dropdown">
           <button type="button" class="dropdown-toggle" id="section-toggle" aria-haspopup="listbox" aria-expanded="false">
@@ -52,37 +64,67 @@
               </svg>
             </span>
           </button>
-          <div class="dropdown-menu" id="section-menu" role="listbox" dir="auto">
-            <div class="dropdown-item">
-              <label class="dropdown-checkbox-label">
-                <input type="checkbox" value="__all__" checked data-section-checkbox />
-                <span>All Sections</span>
-              </label>
-            </div>
+          <div class="dropdown-panel" id="section-panel">
+            <input type="search" class="section-search" id="section-search" hidden placeholder="Search sections…" />
+            <div class="dropdown-menu" id="section-menu" role="listbox" dir="auto"></div>
           </div>
         </div>
       </section>
 
-      <button type="button" id="download" class="cta">
-        <span class="cta__icon" aria-hidden="true">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path d="M12 4v11m0 0l4-4m-4 4l-4-4M5 20h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-              stroke-linejoin="round" />
-          </svg>
-        </span>
-        <span class="cta__label">Scan &amp; download</span>
-      </button>
+      <label class="block block--prefix">
+        <span class="prefix-label" id="prefix-label">Filename prefix</span>
+        <input type="text" id="filename-prefix" class="prefix-input" maxlength="20" placeholder="" />
+      </label>
+
+      <div class="progress-wrap" id="progress-wrap" hidden>
+        <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-bar__fill" id="progress-fill"></div>
+        </div>
+        <span class="progress-text" id="progress-text"></span>
+      </div>
+
+      <div class="cta-row">
+        <button type="button" id="scan" class="cta cta--secondary">
+          <span id="scan-label">Scan course</span>
+        </button>
+        <button type="button" id="download" class="cta" disabled>
+          <span class="cta__icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M12 4v11m0 0l4-4m-4 4l-4-4M5 20h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </span>
+          <span class="cta__label" id="download-label">Download</span>
+        </button>
+      </div>
+
+      <button type="button" id="cancel-download" class="text-btn text-btn--cancel" hidden>Cancel</button>
+
+      <section class="scan-results" id="scan-results" hidden>
+        <p class="scan-summary" id="scan-summary"></p>
+        <p class="path-preview" id="path-preview"></p>
+        <p class="path-note" id="path-note">Saved under your Chrome Downloads folder</p>
+        <details class="file-list-details" id="file-list-details">
+          <summary id="file-list-toggle">Show files</summary>
+          <div class="file-list" id="file-list"></div>
+        </details>
+      </section>
 
       <section class="status-wrap" aria-live="polite" aria-atomic="true">
         <p id="status" class="status">Loading course…</p>
+        <ul class="failure-list" id="failure-list" hidden></ul>
       </section>
+
+      <button type="button" id="open-downloads" class="text-btn text-btn--block" hidden>Open Downloads folder</button>
     </div>
 
     <footer class="foot">
-      <p class="foot__hint">Open a <strong>moodle.bgu.ac.il</strong> course page first</p>
+      <button type="button" class="foot__locale" id="locale-toggle">עברית</button>
+      <p class="foot__hint" id="foot-hint">Open a <strong>moodle.bgu.ac.il</strong> course page first</p>
     </footer>
   </main>
   <script src="utils.js"></script>
+  <script src="popup-strings.js"></script>
   <script src="popup.js"></script>
 </body>
 

@@ -86,9 +86,9 @@ describe('content.js', () => {
             const dom = new JSDOM(html);
             global.document = dom.window.document;
 
-            const types = await getAvailableFileTypesInSections([]);
-            expect(types).toContain('pdf');
-            expect(types).toContain('pptx');
+            const { availableTypes } = await getAvailableFileTypesInSections([]);
+            expect(availableTypes).toContain('pdf');
+            expect(availableTypes).toContain('pptx');
         });
     });
 

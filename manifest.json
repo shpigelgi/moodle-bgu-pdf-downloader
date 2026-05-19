@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Moodle BGU PDF Downloader",
-  "version": "1.1.0",
+  "name": "Course Grabber — BGU Moodle",
+  "version": "1.2.0",
   "description": "Bulk download PDFs, PowerPoint, Word, and Excel files from Moodle course pages with section filtering.",
   "icons": {
     "16": "assets/icon16.png",
@@ -36,7 +36,8 @@
   "permissions": [
     "downloads",
     "activeTab",
-    "scripting"
+    "scripting",
+    "storage"
   ],
   "host_permissions": [
     "https://moodle.bgu.ac.il/*"

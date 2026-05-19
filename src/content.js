@@ -216,35 +216,48 @@ var collectLinks = async (fileTypes, selectedSections = null) => {
 
 var resolveResourceLink = async (url) => {
   try {
-    // Fetch with redirect:follow to get final URL
     const response = await fetch(url, { redirect: 'follow', credentials: 'include' });
-    if (!response.ok) {
-      console.warn(`[Content] Failed to fetch ${url}: ${response.status}`);
-      return [];
-    }
-
-    // The response.url will be the final URL after redirects
     const finalUrl = response.url;
 
-    if (finalUrl.includes("/pluginfile.php/")) {
-      return [finalUrl];
+    if (!response.ok) {
+      const authRequired = response.status === 401 || response.status === 403 || /login/i.test(finalUrl);
+      return { urls: [], authRequired };
     }
 
-    // Fallback: try regex on the HTML
+    if (/login/i.test(finalUrl)) {
+      return { urls: [], authRequired: true };
+    }
+
+    if (finalUrl.includes("/pluginfile.php/")) {
+      return { urls: [finalUrl], authRequired: false };
+    }
+
     const htmlText = await response.text();
+    if (typeof detectAuthHtml === 'function' && detectAuthHtml(htmlText, finalUrl)) {
+      return { urls: [], authRequired: true };
+    }
+
     const pluginfileRegex = /https?:\/\/[^"'\s]+\/pluginfile\.php\/[^"'\s]+/gi;
     const matches = htmlText.match(pluginfileRegex) || [];
     const results = [...new Set(matches)];
 
-    return results.length > 0 ? results : [];
+    return { urls: results.length > 0 ? results : [], authRequired: false };
   } catch (error) {
     console.error(`[Content] Error resolving ${url}:`, error.message);
-    return [];
+    return { urls: [], authRequired: false };
+  }
+};
+
+var reportScanProgress = (current, total) => {
+  if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+    chrome.runtime.sendMessage({ type: 'scan_progress', current, total }).catch(() => {});
   }
 };
 
 var resolveCollectedLinks = async (collectedLinks, fileTypes) => {
   const resolved = [];
+  const toResolve = collectedLinks.filter((item) => item.url.includes('/mod/resource/view.php'));
+  let resolveIndex = 0;
 
   for (const item of collectedLinks) {
     const { url, section, title } = item;
@@ -254,8 +267,17 @@ var resolveCollectedLinks = async (collectedLinks, fileTypes) => {
         resolved.push(item);
       }
     } else if (url.includes("/mod/resource/view.php")) {
-      const pluginUrls = await resolveResourceLink(url);
-      for (const pluginUrl of pluginUrls) {
+      const result = await resolveResourceLink(url);
+      resolveIndex += 1;
+      reportScanProgress(resolveIndex, toResolve.length);
+
+      if (result.authRequired) {
+        const err = new Error('Authentication required');
+        err.authRequired = true;
+        throw err;
+      }
+
+      for (const pluginUrl of result.urls) {
         if (looksLikePdf(pluginUrl, fileTypes)) {
           resolved.push({
             url: pluginUrl,
@@ -268,6 +290,27 @@ var resolveCollectedLinks = async (collectedLinks, fileTypes) => {
   }
 
   return resolved;
+};
+
+var getVisibleSection = () => {
+  const sections = document.querySelectorAll('li.section.course-section');
+  let bestTitle = null;
+  let bestVisible = -1;
+
+  sections.forEach((el) => {
+    const rect = el.getBoundingClientRect();
+    const visible = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+    if (visible > bestVisible) {
+      const nameEl = el.querySelector('h3.sectionname');
+      const title = nameEl?.textContent?.trim();
+      if (title) {
+        bestVisible = visible;
+        bestTitle = title;
+      }
+    }
+  });
+
+  return bestTitle;
 };
 
 var collectSections = () => {
@@ -304,6 +347,7 @@ var getAvailableFileTypesInSections = async (selectedSections) => {
   };
 
   const availableTypes = new Set();
+  const typeCounts = {};
 
   // If no sections specified, check all
   const checkAllSections = !selectedSections || selectedSections.length === 0;
@@ -382,6 +426,7 @@ var getAvailableFileTypesInSections = async (selectedSections) => {
 
         if (fileType) {
           availableTypes.add(fileType);
+          typeCounts[fileType] = (typeCounts[fileType] || 0) + 1;
           const itemName = item.getAttribute('data-activityname') || '';
           console.log(`[Content] Found ${fileType} (${moodleType}):`, itemName);
         }
@@ -394,13 +439,16 @@ var getAvailableFileTypesInSections = async (selectedSections) => {
     console.log(`[Content] Scanning ${foldersToScan.length} folders...`);
     const folderResults = await Promise.all(foldersToScan.map(scanFolder));
     folderResults.forEach(types => {
-      types.forEach(type => availableTypes.add(type));
+      types.forEach(type => {
+        availableTypes.add(type);
+        typeCounts[type] = (typeCounts[type] || 0) + 1;
+      });
     });
   }
 
   const result = Array.from(availableTypes).sort();
   console.log(`[Content] Final detected file types:`, result);
-  return result;
+  return { availableTypes: result, typeCounts };
 };
 
 const registerContentMessageListener = () => {
@@ -420,22 +468,32 @@ const registerContentMessageListener = () => {
   if (message?.type === "get_available_types") {
     const sections = message.sections || [];
 
-    getAvailableFileTypesInSections(sections).then(availableTypes => {
+    getAvailableFileTypesInSections(sections).then(({ availableTypes, typeCounts }) => {
       console.log(`[Content] Available types in sections:`, availableTypes);
 
       sendResponse({
         ok: true,
-        availableTypes
+        availableTypes,
+        typeCounts: typeCounts || {}
       });
     }).catch(error => {
       console.error("[Content] Error getting file types:", error);
       sendResponse({
         ok: false,
-        availableTypes: []
+        availableTypes: [],
+        typeCounts: {}
       });
     });
 
     return true; // Keep channel open for async response
+  }
+
+  if (message?.type === "get_visible_section") {
+    sendResponse({
+      ok: true,
+      section: getVisibleSection()
+    });
+    return true;
   }
 
   if (message?.type === "collect_links") {
@@ -446,8 +504,9 @@ const registerContentMessageListener = () => {
     const sections = message.sections || null;
 
     collectLinks(fileTypes, sections).then(collectedLinks => {
-      // Extract unique sections
-      const allSections = [...new Set(collectedLinks.map(item => item.section))].sort();
+      const sectionOrder = collectSections();
+      const linkSections = new Set(collectedLinks.map((item) => item.section));
+      const allSections = sectionOrder.filter((s) => linkSections.has(s));
 
       return resolveCollectedLinks(collectedLinks, fileTypes).then((links) => {
         console.log(`[Content] Resolved ${links.length} link${links.length === 1 ? '' : 's'}`);
@@ -462,7 +521,8 @@ const registerContentMessageListener = () => {
       console.error("[Content] Error collecting links:", error);
       sendResponse({
         ok: false,
-        error: error.message
+        error: error.message,
+        authRequired: Boolean(error.authRequired)
       });
     });
 
@@ -486,6 +546,7 @@ if (typeof module !== 'undefined' && module.exports) {
     looksLikePdf,
     collectSections,
     getAvailableFileTypesInSections,
+    getVisibleSection,
     getSectionTitle,
     getResourceTitle
   };

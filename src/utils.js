@@ -8,27 +8,31 @@ var FILE_TYPES = {
     'pdf': {
         extensions: ['pdf'],
         label: 'PDF',
+        labelHe: 'PDF',
         moodleIcon: 'pdf'
     },
     'pptx': {
         extensions: ['pptx', 'ppt'],
         label: 'PowerPoint',
+        labelHe: 'PowerPoint',
         moodleIcon: 'powerpoint'
     },
     'docx': {
         extensions: ['docx', 'doc'],
         label: 'Word',
+        labelHe: 'Word',
         moodleIcon: 'document'
     },
     'xlsx': {
         extensions: ['xlsx', 'xls', 'csv'],
         label: 'Excel',
+        labelHe: 'Excel',
         moodleIcon: 'spreadsheet'
     },
-    // Text files often exported as slightly different things, but we classify them generally
     'text': {
         extensions: ['txt', 'rtf'],
         label: 'Text',
+        labelHe: 'טקסט',
         moodleIcon: 'text'
     }
 };
@@ -38,11 +42,70 @@ var MOODLE_ICON_MAP = {
     'powerpoint': 'pptx',
     'document': 'docx',
     'spreadsheet': 'xlsx',
-    'text': null, // Generic icon, not a downloadable file type
+    'text': null,
     'archive': null
 };
 
-/** Whether a FILE_TYPES key should appear in the popup (excludes unmapped Moodle icons like text). */
+var sanitizeForFolder = (name) => {
+    if (!name || typeof name !== 'string') {
+        return "Unknown";
+    }
+    const sanitized = name
+        .replace(/[\\/:*?"<>|]+/g, "-")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 80);
+    return sanitized || "Unknown";
+};
+
+var getCourseIdFromUrl = (url) => {
+    if (!url) return null;
+    try {
+        return new URL(url).searchParams.get('id');
+    } catch (e) {
+        return null;
+    }
+};
+
+var getTypeForUrl = (url) => {
+    if (!url || typeof FILE_TYPES === 'undefined') return null;
+    for (const [type, config] of Object.entries(FILE_TYPES)) {
+        if (config.extensions && matchesFileTypes(url, [type])) {
+            return type;
+        }
+    }
+    return null;
+};
+
+var countByType = (links) => {
+    const counts = {};
+    if (!Array.isArray(links)) return counts;
+    links.forEach((link) => {
+        const type = getTypeForUrl(link.url);
+        if (type) {
+            counts[type] = (counts[type] || 0) + 1;
+        }
+    });
+    return counts;
+};
+
+var buildDownloadPath = (courseTitle, section, filename) => {
+    const coursePath = sanitizeForFolder(courseTitle || "Moodle Course");
+    const sectionPath = sanitizeForFolder(section || "General");
+    const safeName = sanitizeForFolder(filename).replace(/-/g, " ").trim() || "file";
+    return `${coursePath}/${sectionPath}/${safeName}`;
+};
+
+var detectAuthHtml = (htmlText, responseUrl) => {
+    if (responseUrl && /\/login|login\.php/i.test(responseUrl)) {
+        return true;
+    }
+    if (!htmlText || typeof htmlText !== 'string') {
+        return false;
+    }
+    return /name=["']username["']|id=["']login|class=["'][^"']*loginform|course_login_submit/i.test(htmlText);
+};
+
 var isOfferedFileType = (type) => {
     const config = FILE_TYPES[type];
     if (!config) {
@@ -60,15 +123,12 @@ var isOfferedFileType = (type) => {
     return MOODLE_ICON_MAP[config.moodleIcon] != null;
 };
 
-/** True when url ends with an extension allowed by the selected FILE_TYPES keys (e.g. doc for docx). */
 var matchesFileTypes = (url, fileTypes) => {
     if (!url || !Array.isArray(fileTypes) || fileTypes.length === 0) {
         return false;
     }
 
-    const lowerUrl = url.toLowerCase();
     const validExtensions = [];
-
     fileTypes.forEach((type) => {
         const config = FILE_TYPES[type];
         if (config && config.extensions) {
@@ -80,6 +140,7 @@ var matchesFileTypes = (url, fileTypes) => {
         return false;
     }
 
+    const lowerUrl = url.toLowerCase();
     const escaped = validExtensions.map((ext) =>
         ext.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     );
@@ -87,12 +148,20 @@ var matchesFileTypes = (url, fileTypes) => {
     return regex.test(lowerUrl);
 };
 
-// Expose globally if in a module environment or window
+var linkKey = (link) => link.url || `${link.section}::${link.title}`;
+
 if (typeof self !== 'undefined') {
     self.FILE_TYPES = FILE_TYPES;
     self.MOODLE_ICON_MAP = MOODLE_ICON_MAP;
     self.matchesFileTypes = matchesFileTypes;
     self.isOfferedFileType = isOfferedFileType;
+    self.sanitizeForFolder = sanitizeForFolder;
+    self.getCourseIdFromUrl = getCourseIdFromUrl;
+    self.getTypeForUrl = getTypeForUrl;
+    self.countByType = countByType;
+    self.buildDownloadPath = buildDownloadPath;
+    self.detectAuthHtml = detectAuthHtml;
+    self.linkKey = linkKey;
 }
 
 if (typeof window !== 'undefined') {
@@ -100,6 +169,13 @@ if (typeof window !== 'undefined') {
     window.MOODLE_ICON_MAP = MOODLE_ICON_MAP;
     window.matchesFileTypes = matchesFileTypes;
     window.isOfferedFileType = isOfferedFileType;
+    window.sanitizeForFolder = sanitizeForFolder;
+    window.getCourseIdFromUrl = getCourseIdFromUrl;
+    window.getTypeForUrl = getTypeForUrl;
+    window.countByType = countByType;
+    window.buildDownloadPath = buildDownloadPath;
+    window.detectAuthHtml = detectAuthHtml;
+    window.linkKey = linkKey;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -107,6 +183,13 @@ if (typeof module !== 'undefined' && module.exports) {
         FILE_TYPES,
         MOODLE_ICON_MAP,
         matchesFileTypes,
-        isOfferedFileType
+        isOfferedFileType,
+        sanitizeForFolder,
+        getCourseIdFromUrl,
+        getTypeForUrl,
+        countByType,
+        buildDownloadPath,
+        detectAuthHtml,
+        linkKey
     };
 }

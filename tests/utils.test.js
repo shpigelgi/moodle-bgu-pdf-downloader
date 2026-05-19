@@ -1,4 +1,13 @@
-const { FILE_TYPES, MOODLE_ICON_MAP, matchesFileTypes, isOfferedFileType } = require('../src/utils');
+const {
+    FILE_TYPES,
+    MOODLE_ICON_MAP,
+    matchesFileTypes,
+    isOfferedFileType,
+    sanitizeForFolder,
+    countByType,
+    detectAuthHtml,
+    buildDownloadPath
+} = require('../src/utils');
 
 describe('utils.js', () => {
     describe('FILE_TYPES', () => {
@@ -55,6 +64,39 @@ describe('utils.js', () => {
         test('returns false for empty input', () => {
             expect(matchesFileTypes(null, ['pdf'])).toBe(false);
             expect(matchesFileTypes('http://x/a.pdf', [])).toBe(false);
+        });
+    });
+
+    describe('sanitizeForFolder', () => {
+        test('strips illegal path characters', () => {
+            expect(sanitizeForFolder('a/b:c')).toBe('a-b-c');
+        });
+    });
+
+    describe('countByType', () => {
+        test('counts links by file type', () => {
+            const links = [
+                { url: 'http://x/a.pdf', section: 'S', title: 'A' },
+                { url: 'http://x/b.pdf', section: 'S', title: 'B' },
+                { url: 'http://x/c.pptx', section: 'S', title: 'C' }
+            ];
+            expect(countByType(links)).toEqual({ pdf: 2, pptx: 1 });
+        });
+    });
+
+    describe('detectAuthHtml', () => {
+        test('detects login form markup', () => {
+            expect(detectAuthHtml('<form><input name="username"></form>', '')).toBe(true);
+        });
+
+        test('detects login redirect url', () => {
+            expect(detectAuthHtml('', 'https://moodle.bgu.ac.il/login/index.php')).toBe(true);
+        });
+    });
+
+    describe('buildDownloadPath', () => {
+        test('builds course/section/file path', () => {
+            expect(buildDownloadPath('Course', 'Week 1', 'file.pdf')).toBe('Course/Week 1/file.pdf');
         });
     });
 

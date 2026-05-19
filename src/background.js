@@ -7,20 +7,8 @@ if (typeof importScripts === 'function') {
 }
 
 const MAX_CONCURRENT_DOWNLOADS = 3;
-
-const sanitizeForFolder = (name) => {
-  if (!name || typeof name !== 'string') {
-    return "Unknown";
-  }
-
-  const sanitized = name
-    .replace(/[\\/:*?"<>|]+/g, "-")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 80);
-
-  return sanitized || "Unknown";
-};
+let cancelRequested = false;
+let activeDownloadIds = [];
 
 const getBasenameFromUrl = (url) => {
   if (!url || typeof url !== 'string') {
@@ -29,74 +17,97 @@ const getBasenameFromUrl = (url) => {
 
   try {
     const parsed = new URL(url);
-
-    // Check for explicit file param first
-    const fileParam = parsed.searchParams.get("file");
+    const fileParam = parsed.searchParams.get('file');
     if (fileParam) {
-      const fileName = fileParam.split("/").filter(Boolean).pop();
-      if (fileName) {
-        return decodeURIComponent(fileName);
-      }
+      const fileName = fileParam.split('/').filter(Boolean).pop();
+      if (fileName) return decodeURIComponent(fileName);
     }
-
-    const pathname = parsed.pathname;
-    const last = pathname.split("/").filter(Boolean).pop();
-    if (last && last.includes(".")) {
-      return decodeURIComponent(last);
-    }
+    const last = parsed.pathname.split('/').filter(Boolean).pop();
+    if (last && last.includes('.')) return decodeURIComponent(last);
   } catch (error) {
-    console.error("[Background] Error parsing URL:", error.message);
+    console.error('[Background] Error parsing URL:', error.message);
   }
 
   return `file-${Date.now()}`;
 };
 
 const getFileExtension = (url, title) => {
-  // Use centralized FILE_TYPES if available
   const allExtensions = [];
   if (typeof FILE_TYPES !== 'undefined') {
-    Object.values(FILE_TYPES).forEach(type => {
+    Object.values(FILE_TYPES).forEach((type) => {
       if (type.extensions) allExtensions.push(...type.extensions);
     });
   } else {
-    // Fallback if utils not loaded
     allExtensions.push('pdf', 'pptx', 'docx', 'xlsx');
   }
 
   const extRegex = new RegExp(`\\.(${allExtensions.join('|')})$`, 'i');
 
-  // Try to get extension from URL first
   try {
     const pathname = new URL(url).pathname;
     const match = pathname.match(extRegex);
     if (match) return match[1].toLowerCase();
   } catch (error) {
-    // Ignore URL parsing errors
+    // ignore
   }
 
-  // Try to get extension from title
   const titleMatch = title.match(extRegex);
   if (titleMatch) return titleMatch[1].toLowerCase();
-
-  // Default to pdf if unknown
   return 'pdf';
 };
 
-const queueDownloads = async (links, courseFolder) => {
+const reportDownloadProgress = (completed, total) => {
+  if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+    chrome.runtime.sendMessage({ type: 'download_progress', completed, total }).catch(() => {});
+  }
+};
+
+const queueDownloads = async (links, courseFolder, filenamePrefix = '') => {
   if (!Array.isArray(links) || links.length === 0) {
-    console.warn("[Background] No links to download");
-    return Promise.resolve();
+    return { succeeded: 0, failed: 0, failures: [], cancelled: false };
   }
 
-  const coursePath = sanitizeForFolder(courseFolder || "Moodle Course");
+  cancelRequested = false;
+  activeDownloadIds = [];
+
+  const sanitize = typeof sanitizeForFolder === 'function' ? sanitizeForFolder : (n) => n || 'Unknown';
+  const coursePath = sanitize(courseFolder || 'Moodle Course');
+  const prefix = sanitize(filenamePrefix).replace(/\s+/g, '_');
   const titleCounts = {};
+  const failures = [];
+  let succeeded = 0;
+  let failed = 0;
+  let completed = 0;
+  const total = links.length;
 
   let inFlight = 0;
   let index = 0;
 
   return new Promise((resolve) => {
+    const finish = () => {
+      resolve({
+        succeeded,
+        failed,
+        failures,
+        cancelled: cancelRequested,
+        count: succeeded
+      });
+    };
+
     const startNext = () => {
-      while (inFlight < MAX_CONCURRENT_DOWNLOADS && index < links.length) {
+      if (cancelRequested) {
+        activeDownloadIds.forEach((id) => {
+          try {
+            chrome.downloads.cancel(id);
+          } catch (e) {
+            // ignore
+          }
+        });
+        if (inFlight === 0) finish();
+        return;
+      }
+
+      while (inFlight < MAX_CONCURRENT_DOWNLOADS && index < links.length && !cancelRequested) {
         const item = links[index++];
         const { url, section, title } = item;
         inFlight += 1;
@@ -109,19 +120,21 @@ const queueDownloads = async (links, courseFolder) => {
           titleCounts[key] = 0;
         }
 
-        const sectionPath = sanitizeForFolder(section);
+        if (prefix) {
+          filename = `${prefix}${filename}`;
+        }
 
-        // Add proper file extension if missing
+        const sectionPath = sanitize(section);
         const extension = getFileExtension(url, filename);
 
         let hasExtension = false;
         if (typeof FILE_TYPES !== 'undefined') {
           const allExts = [];
-          Object.values(FILE_TYPES).forEach(t => allExts.push(...t.extensions));
+          Object.values(FILE_TYPES).forEach((t) => allExts.push(...t.extensions));
           const regex = new RegExp(`\\.(${allExts.join('|')})$`, 'i');
           hasExtension = regex.test(filename);
         } else {
-          hasExtension = filename.toLowerCase().match(/\.(pdf|pptx|docx|xlsx)$/);
+          hasExtension = /\.(pdf|pptx|docx|xlsx)$/i.test(filename);
         }
 
         if (!hasExtension) {
@@ -130,25 +143,31 @@ const queueDownloads = async (links, courseFolder) => {
 
         const fullPath = `${coursePath}/${sectionPath}/${filename}`;
 
-        console.log(`[Background] Downloading: ${fullPath}`);
-
         chrome.downloads.download(
           {
-            url: url,
+            url,
             filename: fullPath,
-            conflictAction: "uniquify",
-            saveAs: false  // Suppress download prompt, use default Downloads folder
+            conflictAction: 'uniquify',
+            saveAs: false
           },
           (downloadId) => {
+            completed += 1;
+            reportDownloadProgress(completed, total);
+
             if (chrome.runtime.lastError) {
-              console.error(`[Background] Download error:`, chrome.runtime.lastError);
+              failed += 1;
+              failures.push({ title, error: chrome.runtime.lastError.message || 'Download failed' });
+            } else if (downloadId) {
+              succeeded += 1;
+              activeDownloadIds.push(downloadId);
             } else {
-              console.log(`[Background] Started download ${downloadId}`);
+              failed += 1;
+              failures.push({ title, error: 'No download id' });
             }
 
             inFlight -= 1;
-            if (index >= links.length && inFlight === 0) {
-              resolve();
+            if ((index >= links.length && inFlight === 0) || (cancelRequested && inFlight === 0)) {
+              finish();
             } else {
               startNext();
             }
@@ -157,41 +176,51 @@ const queueDownloads = async (links, courseFolder) => {
       }
     };
 
-    if (!links.length) {
-      resolve();
-      return;
-    }
-
     startNext();
   });
 };
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message?.type === "download_links") {
-    const { links = [], courseTitle = "Moodle Course" } = message;
+  if (message?.type === 'download_links') {
+    const { links = [], courseTitle = 'Moodle Course', filenamePrefix = '' } = message;
     if (!Array.isArray(links) || links.length === 0) {
-      sendResponse({ ok: false, error: "No files to download" });
+      sendResponse({ ok: false, error: 'No files to download' });
       return true;
     }
 
-    queueDownloads(links, courseTitle)
-      .then(() => sendResponse({ ok: true, count: links.length }))
+    queueDownloads(links, courseTitle, filenamePrefix)
+      .then((result) => sendResponse({ ok: true, ...result }))
       .catch((error) => {
-        console.error("[Background] Download queue error:", error);
-        sendResponse({ ok: false, error: error.message || "Download failed" });
+        console.error('[Background] Download queue error:', error);
+        sendResponse({ ok: false, error: error.message || 'Download failed' });
       });
 
+    return true;
+  }
+
+  if (message?.type === 'cancel_downloads') {
+    cancelRequested = true;
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (message?.type === 'show_downloads_folder') {
+    if (chrome.downloads.showDefaultFolder) {
+      chrome.downloads.showDefaultFolder();
+      sendResponse({ ok: true });
+    } else {
+      sendResponse({ ok: false, error: 'Not supported' });
+    }
     return true;
   }
 
   return false;
 });
 
-// Export for testing
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    sanitizeForFolder,
     getBasenameFromUrl,
-    getFileExtension
+    getFileExtension,
+    queueDownloads
   };
 }

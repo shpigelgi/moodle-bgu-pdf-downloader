@@ -10,10 +10,11 @@ global.chrome = {
     }
 };
 
-const { FILE_TYPES } = require('../src/utils');
+const { FILE_TYPES, sanitizeForFolder } = require('../src/utils');
 global.FILE_TYPES = FILE_TYPES;
+global.sanitizeForFolder = sanitizeForFolder;
 
-const { sanitizeForFolder, getBasenameFromUrl, getFileExtension } = require('../src/background');
+const { getBasenameFromUrl, getFileExtension } = require('../src/background');
 
 describe('background.js', () => {
     describe('sanitizeForFolder', () => {
