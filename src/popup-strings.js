@@ -35,6 +35,11 @@ var POPUP_STRINGS = {
     wrongPageBody: 'Navigate to a course page on moodle.bgu.ac.il (course/view.php), then open this popup again.',
     openMoodle: 'Open Moodle',
     localeToggle: 'עברית',
+    reportIssue: 'Report issue',
+    reportPreparing: 'Collecting page details…',
+    reportCopied: 'GitHub opened with the report in Description. Submit when ready.',
+    reportClipboard: 'Full report also copied — paste into Description if the field is empty.',
+    reportFailed: 'Could not copy. GitHub is open — paste with Ctrl+V / Cmd+V.',
     experimental: 'experimental'
   },
   he: {
@@ -73,6 +78,11 @@ var POPUP_STRINGS = {
     wrongPageBody: 'עבור לעמוד קורס ב-moodle.bgu.ac.il (course/view.php), ואז פתח שוב את התוסף.',
     openMoodle: 'פתח Moodle',
     localeToggle: 'English',
+    reportIssue: 'דווח על תקלה',
+    reportPreparing: 'אוסף פרטים מהעמוד…',
+    reportCopied: 'GitHub נפתח עם הדוח בשדה Description. שלח כשמוכן.',
+    reportClipboard: 'הדוח הועתק גם ללוח — הדבק ב-Description אם השדה ריק.',
+    reportFailed: 'לא ניתן להעתיק. GitHub נפתח — הדבק ב-Ctrl+V / Cmd+V.',
     experimental: 'ניסיוני'
   }
 };

@@ -19,8 +19,11 @@ const {
   looksLikePdf,
   collectSections,
   getAvailableFileTypesInSections,
+  getVisibleSection,
   getSectionTitle,
-  getResourceTitle
+  getResourceTitle,
+  collectActivityInventory,
+  collectBugReportContext
 } = require('../src/content');
 
 // Mock DOM
@@ -138,6 +141,44 @@ describe('content.js', () => {
             const anchor = document.createElement('a');
             document.body.appendChild(anchor);
             expect(getSectionTitle(anchor)).toBe('General');
+        });
+    });
+
+    describe('bug report context', () => {
+        test('collectActivityInventory lists sections and activities on LLM fixture', () => {
+            const fixturePath = path.join(
+                __dirname,
+                '../resources/קורס_ יישומים מתקדמים של מודלי שפה_ הטמעה, התאמה, וסוכנים חכמים סמ 2 _ דף הבית.html'
+            );
+            const html = fs.readFileSync(fixturePath, 'utf8');
+            const { JSDOM } = require('jsdom');
+            const dom = new JSDOM(html);
+            global.document = dom.window.document;
+
+            const inventory = collectActivityInventory();
+            expect(inventory.length).toBeGreaterThan(0);
+            const withPdf = inventory.find((s) =>
+                s.activities.some((a) => a.type === 'pdf' || a.type === 'resource')
+            );
+            expect(withPdf).toBeTruthy();
+        });
+
+        test('collectBugReportContext includes sanitized HTML', () => {
+            const fixturePath = path.join(
+                __dirname,
+                '../resources/קורס_ אבטחת מחשבים ורשתות תקשורת סמ 2 _ דף הבית.html'
+            );
+            const html = fs.readFileSync(fixturePath, 'utf8');
+            const { JSDOM } = require('jsdom');
+            const dom = new JSDOM(html);
+            global.document = dom.window.document;
+
+            const ctx = collectBugReportContext();
+            expect(ctx.ok).toBe(true);
+            expect(ctx.sectionInventory.length).toBeGreaterThan(0);
+            expect(ctx.pageHtml.length).toBeGreaterThan(100);
+            expect(ctx.pageHtml).not.toMatch(/<script/i);
+            expect(ctx.domStats.activityItems).toBeGreaterThan(0);
         });
     });
 });

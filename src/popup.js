@@ -1,5 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   const MOODLE_COURSE_URL = 'moodle.bgu.ac.il/moodle/course/view.php';
+  const GITHUB_REPO = 'shpigelgi/moodle-bgu-pdf-downloader';
+  const GITHUB_ISSUE_BODY_MAX = 7500;
   const SECTION_SEARCH_MIN = 6;
   const TAB_MESSAGE_TIMEOUT_MS = 20000;
 
@@ -34,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const progressText = $('progress-text');
   const prefixInput = $('filename-prefix');
   const openDownloadsBtn = $('open-downloads');
+  const reportIssueBtn = $('report-issue');
   const localeToggle = $('locale-toggle');
   const localeToggleEmpty = $('locale-toggle-empty');
   const foot = $('foot');
@@ -78,6 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cancelBtn) cancelBtn.textContent = t('cancel');
     if (openCourseBtn) openCourseBtn.textContent = t('openCourse');
     if (openDownloadsBtn) openDownloadsBtn.textContent = t('openDownloads');
+    if (reportIssueBtn) reportIssueBtn.textContent = t('reportIssue');
     if (pathNote) pathNote.textContent = t('pathNote');
     $('empty-state-title') && ($('empty-state-title').textContent = t('wrongPageTitle'));
     $('empty-state-body') && ($('empty-state-body').textContent = t('wrongPageBody'));
@@ -878,6 +882,159 @@ document.addEventListener('DOMContentLoaded', () => {
   openDownloadsBtn.addEventListener('click', () => {
     chrome.runtime.sendMessage({ type: 'show_downloads_folder' });
   });
+
+  const formatSectionInventory = (inventory) => {
+    if (!inventory?.length) return '(no sections parsed)';
+    return inventory
+      .map((section) => {
+        const lines = section.activities.map(
+          (a) => `  - [${a.type}] ${a.name}${a.href ? ` → ${a.href}` : ''}`
+        );
+        return `### ${section.title}\n${lines.length ? lines.join('\n') : '  (no activities)'}`;
+      })
+      .join('\n\n');
+  };
+
+  const formatLinkSample = (links, limit = 50) => {
+    if (!links?.length) return '(none)';
+    return links
+      .slice(0, limit)
+      .map((link) => {
+        let path = link.url;
+        try {
+          path = new URL(link.url).pathname;
+        } catch (e) {
+          // keep original
+        }
+        return `- [${link.section}] ${link.title} → ${path}`;
+      })
+      .join('\n');
+  };
+
+  const buildBugReportText = async () => {
+    const manifest = chrome.runtime.getManifest();
+    const sectionsFilter = getSelectedSections();
+    const failures = Array.from(failureList?.querySelectorAll('li') || []).map((li) => li.textContent);
+
+    let pageContext = null;
+    if (activeTabId && isMoodleCourseTab({ url: activeTabUrl })) {
+      try {
+        pageContext = await sendTabMessage(activeTabId, { type: 'collect_bug_report' });
+      } catch (error) {
+        pageContext = { ok: false, error: error.message };
+      }
+    }
+
+    const parts = [
+      '## Course Grabber bug report',
+      '',
+      '### Extension state',
+      `- Version: ${manifest.version}`,
+      `- Browser: ${navigator.userAgent}`,
+      `- UI locale: ${locale}`,
+      `- Course URL: ${activeTabUrl || 'n/a'}`,
+      `- Course ID: ${courseId || 'n/a'}`,
+      `- Course title (popup): ${scannedCourseTitle || 'n/a'}`,
+      `- Sections in dropdown: ${scannedSections.length}`,
+      `- Full scan complete: ${fullScanComplete}`,
+      `- Files in cache (all types/sections): ${allScannedLinks.length}`,
+      `- Files after current filters: ${scannedLinks.length}`,
+      `- Selected formats: ${getSelectedFileTypes().join(', ') || 'none'}`,
+      `- Section filter: ${sectionsFilter?.length ? sectionsFilter.join(' | ') : 'all'}`,
+      `- Last status: ${statusEl?.textContent?.trim() || 'n/a'}`,
+      failures.length
+        ? `- Download failures:\n${failures.map((f) => `  - ${f}`).join('\n')}`
+        : null,
+      '',
+      '### Files found by extension (sample)',
+      formatLinkSample(scannedLinks),
+      allScannedLinks.length > 50 ? `\n(… ${allScannedLinks.length - 50} more in cache)` : null
+    ];
+
+    if (pageContext?.ok) {
+      parts.push(
+        '',
+        '### Live Moodle page (from course tab)',
+        `- Page URL: ${pageContext.url}`,
+        `- Document title: ${pageContext.documentTitle}`,
+        `- Course title (DOM): ${pageContext.courseTitle}`,
+        `- Visible section: ${pageContext.visibleSection || 'n/a'}`,
+        `- Section count: ${pageContext.sectionNames?.length ?? 0}`,
+        `- DOM stats: ${JSON.stringify(pageContext.domStats)}`,
+        '',
+        '### Activities on page (by section)',
+        formatSectionInventory(pageContext.sectionInventory),
+        '',
+        '### Course page HTML (sanitized, for layout debugging)',
+        `Root: ${pageContext.pageHtmlMeta?.root}, length: ${pageContext.pageHtmlMeta?.originalLength}${
+          pageContext.pageHtmlMeta?.truncated ? ' (truncated in report)' : ''
+        }`,
+        '',
+        '```html',
+        pageContext.pageHtml || '(empty)',
+        '```'
+      );
+    } else if (pageContext?.error) {
+      parts.push('', '### Live Moodle page', `Could not read page: ${pageContext.error}`);
+    } else {
+      parts.push('', '### Live Moodle page', '(not on a course tab — open the course page and try again)');
+    }
+
+    parts.push(
+      '',
+      '---',
+      'Reporter: describe what you expected above. Do not include passwords.'
+    );
+
+    return parts.filter((p) => p != null).join('\n');
+  };
+
+  const buildGitHubIssueUrl = (diagnostics, titleText) => {
+    let body = diagnostics;
+    if (body.length > GITHUB_ISSUE_BODY_MAX) {
+      body = body.replace(
+        /### Course page HTML[\s\S]*?```html[\s\S]*?```/,
+        '### Course page HTML\n(Full HTML is in your clipboard — paste it here if the maintainer needs it.)\n'
+      );
+    }
+    if (body.length > GITHUB_ISSUE_BODY_MAX) {
+      body = `${body.slice(0, GITHUB_ISSUE_BODY_MAX)}\n\n…(truncated for GitHub URL — paste full report from clipboard)…`;
+    }
+
+    const params = new URLSearchParams({
+      title: titleText,
+      body,
+      labels: 'bug'
+    });
+    return `https://github.com/${GITHUB_REPO}/issues/new?${params.toString()}`;
+  };
+
+  const openBugReport = async () => {
+    if (reportIssueBtn) reportIssueBtn.disabled = true;
+    setStatus(t('reportPreparing'));
+
+    const diagnostics = await buildBugReportText();
+    const titleText = `[Bug] ${
+      scannedCourseTitle && scannedCourseTitle !== 'Moodle Course' ? scannedCourseTitle : 'Moodle course'
+    }`;
+    const issueUrl = buildGitHubIssueUrl(diagnostics, titleText);
+
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(diagnostics);
+      copied = true;
+    } catch (e) {
+      console.warn('[Popup] clipboard:', e);
+    }
+
+    chrome.tabs.create({ url: issueUrl });
+    const statusMsg = copied ? `${t('reportCopied')} ${t('reportClipboard')}` : t('reportFailed');
+    setStatus(statusMsg, copied ? 'success' : 'warn');
+    if (reportIssueBtn) reportIssueBtn.disabled = false;
+    scheduleResize();
+  };
+
+  reportIssueBtn?.addEventListener('click', openBugReport);
 
   prefixInput?.addEventListener('change', savePrefs);
 

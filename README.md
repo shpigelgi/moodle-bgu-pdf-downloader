@@ -106,6 +106,10 @@ pdf-downloader/
 - Fixtures: [resources/README.md](resources/README.md)
 - Edge cases: [docs/RISK_CASES.md](docs/RISK_CASES.md)
 
+## Reporting bugs
+
+If something fails on a specific course, use **Report issue** in the popup — it copies extension state, file lists, activity inventory, and sanitized course HTML for debugging without access to your course. See [docs/REPORTING.md](docs/REPORTING.md).
+
 ## Contributing
 
 Issues and pull requests are welcome. Please run `npm test` and verify on a real Moodle course page.

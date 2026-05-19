@@ -1,0 +1,50 @@
+name: Bug report
+description: Course Grabber failed or missed files on a Moodle course
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    value: |
+      Thanks for helping improve Course Grabber. **Do not paste passwords.**
+
+      Use **Report issue** in the extension on the **failing course tab** — it opens GitHub with a pre-filled **Description** (and copies the full report to your clipboard as backup).
+
+      The report includes activity inventory and sanitized course HTML so maintainers can debug without access to your course.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What went wrong?
+      description: What did you expect? What happened instead?
+      placeholder: e.g. PDFs show in Moodle but the extension says "No matching files"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Course page URL, sections/formats selected, etc.
+      placeholder: |
+        1. Open course … on moodle.bgu.ac.il
+        2. Select sections …
+        3. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Extra diagnostics (optional)
+      description: Only if the extension could not pre-fill the main issue Description — paste the clipboard report here.
+      render: text
+      placeholder: |
+        (paste clipboard report here if needed)
+
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Privacy
+      options:
+        - label: I confirm this report does not include passwords, personal files, or content I am not allowed to share.
+      required: true

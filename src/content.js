@@ -1,4 +1,5 @@
-const CONTENT_SCRIPT_VERSION = '1.2.1';
+const CONTENT_SCRIPT_VERSION = '1.2.2';
+const BUG_REPORT_HTML_MAX = 45000;
 const FETCH_TIMEOUT_MS = 10000;
 
 var fetchWithTimeout = async (url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) => {
@@ -464,6 +465,111 @@ var getAvailableFileTypesInSections = async (selectedSections) => {
   return { availableTypes: result, typeCounts };
 };
 
+var collectActivityInventory = () => {
+  const mainContent = document.querySelector('#page-content') || document.body;
+  const inventory = [];
+
+  mainContent.querySelectorAll('li.section.course-section').forEach((sectionEl) => {
+    const title = sectionEl.querySelector('h3.sectionname')?.textContent?.trim();
+    if (!title) return;
+
+    const activities = [];
+    sectionEl.querySelectorAll('.activity-item').forEach((item) => {
+      const name =
+        item.getAttribute('data-activityname') ||
+        item.querySelector('.instancename')?.textContent?.trim() ||
+        'Untitled';
+      const link = item.querySelector('a[href]');
+      let href = '';
+      try {
+        href = link ? new URL(link.getAttribute('href'), location.href).pathname : '';
+      } catch (e) {
+        href = '';
+      }
+
+      let type = 'unknown';
+      const icon = item.querySelector('img[src*="/f/"]');
+      if (icon) {
+        const match = icon.src.match(/\/f\/([^-/]+)/);
+        if (match) type = match[1];
+      }
+      if (href.includes('/mod/folder/')) type = 'folder';
+      else if (href.includes('/mod/resource/')) type = type === 'unknown' ? 'resource' : type;
+
+      activities.push({ name, type, href });
+    });
+
+    inventory.push({ title, activities });
+  });
+
+  return inventory;
+};
+
+var getSanitizedPageHtml = (maxLen = BUG_REPORT_HTML_MAX) => {
+  const root =
+    document.querySelector('#page-content') ||
+    document.querySelector('#region-main') ||
+    document.querySelector('[role="main"]');
+
+  if (!root) {
+    return { html: '', root: 'none', originalLength: 0, truncated: false };
+  }
+
+  const clone = root.cloneNode(true);
+  clone.querySelectorAll('script, style, iframe, noscript, svg, link[rel="stylesheet"]').forEach((el) => {
+    el.remove();
+  });
+
+  let html = clone.innerHTML.replace(/\s+/g, ' ').trim();
+  const originalLength = html.length;
+  const truncated = originalLength > maxLen;
+  if (truncated) {
+    html = `${html.slice(0, maxLen)}\n<!-- … truncated (${originalLength} chars total) … -->`;
+  }
+
+  return {
+    html,
+    root: root.id ? `#${root.id}` : root.tagName.toLowerCase(),
+    originalLength,
+    truncated
+  };
+};
+
+var collectBugReportContext = () => {
+  const mainContent = document.querySelector('#page-content') || document.body;
+  const pageHtml = getSanitizedPageHtml();
+
+  const pageUrl =
+    typeof location !== 'undefined' && location.href
+      ? location.href
+      : typeof document !== 'undefined' && document.URL
+        ? document.URL
+        : '';
+
+  return {
+    ok: true,
+    url: pageUrl,
+    documentTitle: document.title,
+    courseTitle: getCourseTitle(),
+    sectionNames: collectSections(),
+    visibleSection: getVisibleSection(),
+    domStats: {
+      activityItems: mainContent.querySelectorAll('.activity-item').length,
+      resourceLinks: mainContent.querySelectorAll('a[href*="/mod/resource/view.php"]').length,
+      folderLinks: mainContent.querySelectorAll('a[href*="/mod/folder/view.php"]').length,
+      pluginfileLinks: mainContent.querySelectorAll('a[href*="/pluginfile.php/"]').length,
+      courseSections: mainContent.querySelectorAll('li.section.course-section').length
+    },
+    sectionInventory: collectActivityInventory(),
+    pageHtml: pageHtml.html,
+    pageHtmlMeta: {
+      root: pageHtml.root,
+      originalLength: pageHtml.originalLength,
+      truncated: pageHtml.truncated
+    }
+  };
+};
+
 const registerContentMessageListener = () => {
   if (typeof window !== 'undefined' && window.pdfDownloaderMessageHandler) {
     chrome.runtime.onMessage.removeListener(window.pdfDownloaderMessageHandler);
@@ -512,6 +618,15 @@ const registerContentMessageListener = () => {
       ok: true,
       section: getVisibleSection()
     });
+    return true;
+  }
+
+  if (message?.type === "collect_bug_report") {
+    try {
+      sendResponse(collectBugReportContext());
+    } catch (error) {
+      sendResponse({ ok: false, error: error.message });
+    }
     return true;
   }
 
@@ -572,6 +687,9 @@ if (typeof module !== 'undefined' && module.exports) {
     getAvailableFileTypesInSections,
     getVisibleSection,
     getSectionTitle,
-    getResourceTitle
+    getResourceTitle,
+    collectActivityInventory,
+    getSanitizedPageHtml,
+    collectBugReportContext
   };
 }

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or feature idea
+    url: https://github.com/shpigelgi/moodle-bgu-pdf-downloader/issues/new?template=feature_request.yml
+    about: Suggest an improvement (not a broken course)
+  - name: Releases
+    url: https://github.com/shpigelgi/moodle-bgu-pdf-downloader/releases
+    about: Download a tagged version
