@@ -15,7 +15,13 @@ global.matchesFileTypes = matchesFileTypes;
 const fs = require('fs');
 const path = require('path');
 
-const { looksLikePdf, collectSections, getSectionTitle, getResourceTitle } = require('../src/content');
+const {
+  looksLikePdf,
+  collectSections,
+  getAvailableFileTypesInSections,
+  getSectionTitle,
+  getResourceTitle
+} = require('../src/content');
 
 // Mock DOM
 const { JSDOM } = require('jsdom');
@@ -66,6 +72,23 @@ describe('content.js', () => {
             anchor.href = 'http://example.com/resource/Lecture1.pdf';
             anchor.textContent = '';
             expect(getResourceTitle(anchor)).toBe('Lecture1.pdf');
+        });
+    });
+
+    describe('getAvailableFileTypesInSections', () => {
+        test('detects PDF and PowerPoint on LLM course fixture', async () => {
+            const fixturePath = path.join(
+                __dirname,
+                '../resources/קורס_ יישומים מתקדמים של מודלי שפה_ הטמעה, התאמה, וסוכנים חכמים סמ 2 _ דף הבית.html'
+            );
+            const html = fs.readFileSync(fixturePath, 'utf8');
+            const { JSDOM } = require('jsdom');
+            const dom = new JSDOM(html);
+            global.document = dom.window.document;
+
+            const types = await getAvailableFileTypesInSections([]);
+            expect(types).toContain('pdf');
+            expect(types).toContain('pptx');
         });
     });
 

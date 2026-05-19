@@ -7,6 +7,7 @@ Saved course pages used for **offline DOM testing** and documentation. No login 
 | File | Shape | Notes |
 |------|--------|--------|
 | `קורס_ אבטחת מחשבים ורשתות תקשורת סמ 2 _ דף הבית.html` | **Sections only** (no folders) | BGU Moodle course view; ~15 sections; PDF + PowerPoint via `/mod/resource/view.php`; Hebrew section titles; `h3.sectionname` + `.activity-item` layout |
+| `קורס_ יישומים מתקדמים של מודלי שפה_ הטמעה, התאמה, וסוכנים חכמים סמ 2 _ דף הבית.html` | **Sections only** | ~12 activities; PDF + PowerPoint (`f/powerpoint-24` icons); mixed Hebrew/English titles |
 
 Confirmed in this snapshot:
 

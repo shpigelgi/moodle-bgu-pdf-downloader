@@ -42,6 +42,24 @@ var MOODLE_ICON_MAP = {
     'archive': null
 };
 
+/** Whether a FILE_TYPES key should appear in the popup (excludes unmapped Moodle icons like text). */
+var isOfferedFileType = (type) => {
+    const config = FILE_TYPES[type];
+    if (!config) {
+        return false;
+    }
+    if (!config.moodleIcon) {
+        return type !== 'text';
+    }
+    if (typeof MOODLE_ICON_MAP === 'undefined') {
+        return type !== 'text';
+    }
+    if (!(config.moodleIcon in MOODLE_ICON_MAP)) {
+        return true;
+    }
+    return MOODLE_ICON_MAP[config.moodleIcon] != null;
+};
+
 /** True when url ends with an extension allowed by the selected FILE_TYPES keys (e.g. doc for docx). */
 var matchesFileTypes = (url, fileTypes) => {
     if (!url || !Array.isArray(fileTypes) || fileTypes.length === 0) {
@@ -74,18 +92,21 @@ if (typeof self !== 'undefined') {
     self.FILE_TYPES = FILE_TYPES;
     self.MOODLE_ICON_MAP = MOODLE_ICON_MAP;
     self.matchesFileTypes = matchesFileTypes;
+    self.isOfferedFileType = isOfferedFileType;
 }
 
 if (typeof window !== 'undefined') {
     window.FILE_TYPES = FILE_TYPES;
     window.MOODLE_ICON_MAP = MOODLE_ICON_MAP;
     window.matchesFileTypes = matchesFileTypes;
+    window.isOfferedFileType = isOfferedFileType;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         FILE_TYPES,
         MOODLE_ICON_MAP,
-        matchesFileTypes
+        matchesFileTypes,
+        isOfferedFileType
     };
 }

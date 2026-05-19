@@ -1,4 +1,4 @@
-const { FILE_TYPES, MOODLE_ICON_MAP, matchesFileTypes } = require('../src/utils');
+const { FILE_TYPES, MOODLE_ICON_MAP, matchesFileTypes, isOfferedFileType } = require('../src/utils');
 
 describe('utils.js', () => {
     describe('FILE_TYPES', () => {
@@ -17,6 +17,19 @@ describe('utils.js', () => {
         test('should have correct extensions for PowerPoint', () => {
             expect(FILE_TYPES.pptx.extensions).toContain('pptx');
             expect(FILE_TYPES.pptx.extensions).toContain('ppt');
+        });
+    });
+
+    describe('isOfferedFileType', () => {
+        test('offers pptx/docx/xlsx via moodleIcon keys, not FILE_TYPES keys', () => {
+            expect(isOfferedFileType('pdf')).toBe(true);
+            expect(isOfferedFileType('pptx')).toBe(true);
+            expect(isOfferedFileType('docx')).toBe(true);
+            expect(isOfferedFileType('xlsx')).toBe(true);
+        });
+
+        test('excludes text when moodle maps text to null', () => {
+            expect(isOfferedFileType('text')).toBe(false);
         });
     });
 

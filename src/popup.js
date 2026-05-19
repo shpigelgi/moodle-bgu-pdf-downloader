@@ -49,8 +49,10 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const isDownloadableFileType = (type) => {
-    if (typeof MOODLE_ICON_MAP === "undefined") return type !== "text";
-    return MOODLE_ICON_MAP[type] !== null && MOODLE_ICON_MAP[type] !== undefined;
+    if (typeof isOfferedFileType === "function") {
+      return isOfferedFileType(type);
+    }
+    return type !== "text";
   };
 
   const isMoodleCourseTab = (tab) => Boolean(tab?.url?.includes(MOODLE_COURSE_URL));
